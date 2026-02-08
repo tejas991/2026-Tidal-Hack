@@ -357,7 +357,7 @@ export default function ScanPage() {
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">
             Detected Items
           </h2>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {detectedItems.map((item) => (
               <InventoryItemCard key={item.id} item={item} />
             ))}
@@ -365,12 +365,12 @@ export default function ScanPage() {
         </section>
 
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
           <Button
             variant="primary"
             onClick={handleReset}
             leftIcon={<RefreshIcon />}
-            fullWidth
+            className="w-full md:w-auto min-h-[44px]"
           >
             Scan Again
           </Button>
@@ -378,7 +378,7 @@ export default function ScanPage() {
             variant="outline"
             onClick={() => navigate('/inventory')}
             leftIcon={<InventoryIcon />}
-            fullWidth
+            className="w-full md:w-auto min-h-[44px]"
           >
             View Inventory
           </Button>
@@ -422,6 +422,7 @@ export default function ScanPage() {
             variant="primary"
             onClick={handleReset}
             leftIcon={<RefreshIcon />}
+            className="min-h-[44px]"
           >
             Try Again
           </Button>
@@ -437,7 +438,7 @@ export default function ScanPage() {
       <PageHeader />
 
       {/* Image upload — large & prominent */}
-      <section>
+      <section className="md:max-w-2xl md:mx-auto">
         <ImageUpload onUpload={handleUpload} />
       </section>
 
@@ -446,7 +447,7 @@ export default function ScanPage() {
         <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Tips for best results
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {tips.map((tip) => (
             <div
               key={tip.title}

@@ -385,9 +385,9 @@ export default function RecipesPage() {
   /* ---- Render ---- */
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20 md:pb-0">
       {/* ── Header ── */}
-      <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 tracking-tight">
             Recipes to Save Your Food
@@ -396,12 +396,14 @@ export default function RecipesPage() {
             AI-generated meals using what&apos;s already in your fridge.
           </p>
         </div>
+        {/* Desktop generate button */}
         <Button
           variant="primary"
           size="md"
           leftIcon={<SparkleIcon />}
           isLoading={status === 'loading'}
           onClick={handleGenerate}
+          className="hidden md:inline-flex"
         >
           {recipes.length > 0 ? 'Refresh Recipes' : 'Get New Recipes'}
         </Button>
@@ -411,7 +413,7 @@ export default function RecipesPage() {
       {showFilters && (
         <section
           className={[
-            'flex flex-col sm:flex-row sm:items-center gap-4',
+            'flex flex-col md:flex-row md:items-center gap-4',
             'rounded-xl border border-neutral-200 bg-white',
             'p-4',
           ].join(' ')}
@@ -460,7 +462,7 @@ export default function RecipesPage() {
           </label>
 
           {/* Difficulty dropdown */}
-          <div className="flex items-center gap-2 sm:ml-auto">
+          <div className="flex items-center gap-2 md:ml-auto">
             <span className="text-sm text-neutral-500">Difficulty:</span>
             <select
               value={difficulty}
@@ -588,6 +590,28 @@ export default function RecipesPage() {
           }
         />
       )}
+
+      {/* ── Fixed bottom generate button — mobile only ── */}
+      <div
+        className={[
+          'fixed bottom-16 inset-x-0 z-30',
+          'px-4 pb-3 pt-4',
+          'bg-gradient-to-t from-neutral-50 via-neutral-50/95 to-transparent',
+          'md:hidden',
+        ].join(' ')}
+      >
+        <Button
+          variant="primary"
+          size="lg"
+          leftIcon={<SparkleIcon />}
+          isLoading={status === 'loading'}
+          onClick={handleGenerate}
+          fullWidth
+          className="min-h-[44px] shadow-medium"
+        >
+          {recipes.length > 0 ? 'Refresh Recipes' : 'Get New Recipes'}
+        </Button>
+      </div>
 
       {/* ── Toast ── */}
       {toast.visible && (

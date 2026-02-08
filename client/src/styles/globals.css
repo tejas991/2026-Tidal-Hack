@@ -380,6 +380,18 @@
     to    { width: 0%; }
   }
 
+  /* ---- Slide-up animation (toasts, fixed CTAs) ---- */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   /* Inset variant — for cards and filled elements */
   .focus-ring-inset:focus-visible {
     outline: 2px solid var(--ring-color);

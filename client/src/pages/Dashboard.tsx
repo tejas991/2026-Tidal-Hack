@@ -296,9 +296,9 @@ export default function Dashboard() {
         <div
           role="alert"
           className={[
-            'flex flex-col sm:flex-row sm:items-center gap-3',
+            'flex flex-col md:flex-row md:items-center gap-3',
             'rounded-xl border-l-4 border-l-danger',
-            'bg-danger-light p-4 sm:p-5',
+            'bg-danger-light p-4 md:p-5',
           ].join(' ')}
         >
           <span className="text-danger shrink-0">
@@ -325,7 +325,7 @@ export default function Dashboard() {
 
       {/* ── Stats Grid ── */}
       <section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statsConfig.map((stat) => (
             <StatsCard key={stat.label} {...stat} />
           ))}
@@ -337,15 +337,16 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold text-neutral-900 mb-4">
           Quick Actions
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {quickActions.map((action) => (
             <button
               key={action.path}
               type="button"
               onClick={() => navigate(action.path)}
               className={[
-                'flex flex-col items-center gap-3 p-6',
+                'flex flex-col items-center gap-3 p-5 md:p-6',
                 'rounded-xl border border-neutral-200 bg-white',
+                'min-h-[44px]',
                 'transition-all duration-200 ease-in-out',
                 'hover:-translate-y-0.5 hover:shadow-medium hover:border-brand-300',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400',

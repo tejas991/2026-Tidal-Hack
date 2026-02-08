@@ -176,24 +176,27 @@ function ShoppingItemRow({ item, onToggle, onDelete }: ShoppingItemRowProps) {
         .filter(Boolean)
         .join(' ')}
     >
-      {/* Checkbox */}
+      {/* Checkbox — 44px touch target wrapping the visual checkbox */}
       <button
         type="button"
         role="checkbox"
         aria-checked={item.purchased}
         aria-label={`Mark ${item.item_name} as ${item.purchased ? 'not purchased' : 'purchased'}`}
         onClick={() => onToggle(item.id)}
-        className={[
-          'shrink-0 flex items-center justify-center',
-          'w-5 h-5 rounded border-2',
-          'transition-all duration-200',
-          'cursor-pointer',
-          item.purchased
-            ? 'bg-brand-500 border-brand-500 text-white'
-            : 'border-neutral-300 hover:border-brand-400',
-        ].join(' ')}
+        className="shrink-0 flex items-center justify-center w-10 h-10 -m-2 cursor-pointer"
       >
-        {item.purchased && <CheckIcon />}
+        <span
+          className={[
+            'flex items-center justify-center',
+            'w-5 h-5 rounded border-2',
+            'transition-all duration-200',
+            item.purchased
+              ? 'bg-brand-500 border-brand-500 text-white'
+              : 'border-neutral-300 hover:border-brand-400',
+          ].join(' ')}
+        >
+          {item.purchased && <CheckIcon />}
+        </span>
       </button>
 
       {/* Item name */}
@@ -227,16 +230,17 @@ function ShoppingItemRow({ item, onToggle, onDelete }: ShoppingItemRowProps) {
         {shopCat}
       </span>
 
-      {/* Delete button */}
+      {/* Delete button — always visible on touch, hover-reveal on desktop */}
       <button
         type="button"
         aria-label={`Delete ${item.item_name}`}
         onClick={() => onDelete(item.id)}
         className={[
-          'shrink-0 p-1.5 rounded-md',
+          'shrink-0 p-2 rounded-md min-h-[44px] min-w-[44px]',
+          'flex items-center justify-center',
           'text-neutral-300 hover:text-danger hover:bg-danger-light',
           'transition-all duration-200',
-          'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+          'opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100',
           'cursor-pointer',
         ].join(' ')}
       >
@@ -326,7 +330,7 @@ export default function ShoppingListPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <section className="flex items-center justify-between gap-4">
+      <section className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 tracking-tight">
             Shopping List
