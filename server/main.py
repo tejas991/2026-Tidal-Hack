@@ -104,7 +104,6 @@ app = FastAPI(
 )
 
 # Configure CORS for React frontend
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -219,7 +218,7 @@ async def scan_fridge(
 
                 try:
                     os.remove(crop_path)
-                except:
+                except OSError:
                     pass
 
             # Try 3: AI estimates shelf life (works for fruits, veggies, meat, etc.)
@@ -246,7 +245,7 @@ async def scan_fridge(
             if expiration_date:
                 try:
                     inventory_data["expiration_date"] = datetime.strptime(expiration_date, "%Y-%m-%d")
-                except:
+                except (ValueError, TypeError):
                     inventory_data["expiration_date"] = None
 
             await db.inventory_items.insert_one(inventory_data)
@@ -318,7 +317,7 @@ async def extract_text(
         # Clean up
         try:
             os.remove(file_path)
-        except:
+        except OSError:
             pass
 
         print(f"🔤 Found {len(texts)} text segments in image")

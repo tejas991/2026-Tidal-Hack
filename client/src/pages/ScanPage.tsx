@@ -212,11 +212,18 @@ export default function ScanPage() {
 
     let succeeded = false;
 
+    // Switch to processing state after a short delay in case progress never updates
+    // (Vite proxy strips Content-Length so onProgress always reports 0%)
+    const processingTimer = setTimeout(() => {
+      if (mountedRef.current) setStatus('processing');
+    }, 2000);
+
     try {
       const items = await uploadImage(file, (pct) => {
         if (!mountedRef.current) return;
         setProgress(pct);
         if (pct >= 100) {
+          clearTimeout(processingTimer);
           setStatus('processing');
         }
       });
@@ -258,6 +265,7 @@ export default function ScanPage() {
         setErrorType('server');
       }
     } finally {
+      clearTimeout(processingTimer);
       if (!mountedRef.current) return;
       setProgress(0);
       // Safety net: if we didn't reach success, force the error screen

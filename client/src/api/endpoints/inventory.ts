@@ -128,12 +128,12 @@ async function updateItemStatus(
   status: ItemStatus,
 ): Promise<BackendItemStatusResponse> {
   try {
-    const formData = new FormData();
-    formData.append('status', status);
+    const params = new URLSearchParams();
+    params.append('status', status);
 
     const response = await put<BackendItemStatusResponse>(
       `/api/items/${encodeURIComponent(itemId)}/status`,
-      formData,
+      params,
     );
     return response;
   } catch (error: unknown) {

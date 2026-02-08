@@ -188,8 +188,13 @@ export default function ImageUpload({
         return;
       }
 
-      // Send original image — no compression so the model sees full quality
-      const processed = file;
+      // Light compression: keep high quality but cap size so uploads don't hang
+      let processed: File;
+      try {
+        processed = await compressImage(file, 4096, 0.92);
+      } catch {
+        processed = file;
+      }
 
       // Create preview
       const reader = new FileReader();
