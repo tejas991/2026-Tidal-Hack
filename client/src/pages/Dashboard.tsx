@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import type { InventoryItem } from '../types';
-import { useInventory, useExpiringItems, useToggleCrossOut } from '../hooks/useInventory';
+import { useInventory, useExpiringItems, useRemoveItem } from '../hooks/useInventory';
 import StatsCard from '../components/features/Dashboard/StatsCard';
 import InventoryItemCard from '../components/features/Inventory/InventoryItemCard';
 import Card, { CardHeader } from '../components/ui/Card';
@@ -221,7 +221,7 @@ export default function Dashboard() {
     isLoading: expiringLoading,
   } = useExpiringItems(USER_ID, EXPIRING_DAYS);
 
-  const toggleCrossOut = useToggleCrossOut(USER_ID);
+  const removeItem = useRemoveItem(USER_ID);
 
   // ---- Derived data (all computed from the live inventory array) ----
   const urgentItems = useMemo(
@@ -411,7 +411,7 @@ export default function Dashboard() {
           ) : sortedExpiringItems.length > 0 ? (
             <div className="px-5 pb-5 space-y-3">
               {sortedExpiringItems.map((item) => (
-                <InventoryItemCard key={item.id} item={item} onToggleCrossOut={(id) => toggleCrossOut.mutate(id)} />
+                <InventoryItemCard key={item.id} item={item} onToggleCrossOut={(id) => removeItem.mutate(id)} />
               ))}
             </div>
           ) : (
@@ -452,7 +452,7 @@ export default function Dashboard() {
           ) : recentItems.length > 0 ? (
             <div className="px-5 pb-5 space-y-3">
               {recentItems.map((item) => (
-                <InventoryItemCard key={item.id} item={item} onToggleCrossOut={(id) => toggleCrossOut.mutate(id)} />
+                <InventoryItemCard key={item.id} item={item} onToggleCrossOut={(id) => removeItem.mutate(id)} />
               ))}
             </div>
           ) : (

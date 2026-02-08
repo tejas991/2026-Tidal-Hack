@@ -394,7 +394,7 @@ async def get_inventory(user_id: str, status: str = "active"):
         raise HTTPException(status_code=500, detail=f"Failed to fetch inventory: {str(e)}")
 
 
-@app.get("/api/expiring-items/{user_id}", response_model=ExpiringItemsResponse)
+@app.get("/api/expiring-items/{user_id}")
 async def get_expiring_items(user_id: str, days: int = 3):
     """
     Get items expiring within specified days
@@ -446,16 +446,16 @@ async def get_expiring_items(user_id: str, days: int = 3):
                 item["expiration_date"] = exp_date.isoformat()
                 item["days_left"] = days_left
 
-            expiring_items.append(InventoryItem(**item))
+            expiring_items.append(item)
 
         print(f"⏰ Found {len(expiring_items)} items expiring for user {user_id}")
 
-        return ExpiringItemsResponse(
-            user_id=user_id,
-            expiring_items=expiring_items,
-            total_expiring=len(expiring_items),
-            urgency_breakdown=urgency
-        )
+        return {
+            "user_id": user_id,
+            "expiring_items": expiring_items,
+            "total_expiring": len(expiring_items),
+            "urgency_breakdown": urgency,
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch expiring items: {str(e)}")
@@ -737,39 +737,38 @@ async def update_item_status(item_id: str, status: str = Form(...)):
 
 
 # ==================== CROSS-OUT TOGGLE ====================
-@app.put("/api/items/{item_id}/cross-out")
-async def toggle_cross_out(item_id: str):
+@app.delete("/api/items/{item_id}")
+async def delete_item(item_id: str):
     """
-    Toggle the is_crossed_out flag on an inventory item.
+    Delete an inventory item permanently.
 
     Args:
         item_id: MongoDB item ID
 
     Returns:
-        Updated crossed-out state
+        Confirmation of deletion
     """
     db = get_database()
 
     try:
         from bson import ObjectId
 
-        item = await db.inventory_items.find_one({"_id": ObjectId(item_id)})
-        if not item:
+        # Try ObjectId first, then string fallback
+        result = await db.inventory_items.delete_one({"_id": ObjectId(item_id)})
+        if result.deleted_count == 0:
+            result = await db.inventory_items.delete_one({"_id": item_id})
+
+        if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Item not found")
 
-        new_value = not item.get("is_crossed_out", False)
-
-        await db.inventory_items.update_one(
-            {"_id": ObjectId(item_id)},
-            {"$set": {"is_crossed_out": new_value}}
-        )
-
-        return {"item_id": item_id, "is_crossed_out": new_value}
+        print(f"🗑️ Deleted item {item_id}")
+        return {"item_id": item_id, "deleted": True}
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to toggle cross-out: {str(e)}")
+        print(f"❌ Error deleting item {item_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete item: {str(e)}")
 
 
 # ==================== RUN SERVER ====================

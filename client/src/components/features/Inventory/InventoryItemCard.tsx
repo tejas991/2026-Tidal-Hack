@@ -129,7 +129,6 @@ function InventoryItemCard({
 }: InventoryItemCardProps) {
   const urgency = getExpirationUrgency(item.expiration_date);
   const isClickable = Boolean(onClick);
-  const isCrossedOut = item.is_crossed_out ?? false;
   const isLowConfidence = item.confidence_score < 0.8;
   const confidencePct = Math.round(item.confidence_score * 100);
   const [imgError, setImgError] = useState(false);
@@ -164,8 +163,6 @@ function InventoryItemCard({
           'active:scale-[0.99]',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400',
         ].join(' '),
-        // crossed out
-        isCrossedOut && 'opacity-60',
         // expired background
         urgency.level !== 'expired' && 'border-neutral-200',
         urgency.level === 'expired' && 'border-danger/20',
@@ -202,10 +199,7 @@ function InventoryItemCard({
         {/* Top row: name + confidence badge */}
         <div className="flex items-center gap-2">
           <h3
-            className={[
-              'text-base font-semibold capitalize truncate',
-              isCrossedOut ? 'line-through text-neutral-400' : 'text-neutral-900',
-            ].join(' ')}
+            className="text-base font-semibold capitalize truncate text-neutral-900"
           >
             {item.item_name}
           </h3>
@@ -245,7 +239,7 @@ function InventoryItemCard({
         </div>
       </div>
 
-      {/* Days remaining badge + cross-out toggle */}
+      {/* Days remaining badge + remove button */}
       <div className="shrink-0 flex items-center gap-2">
         {onToggleCrossOut && (
           <button
@@ -258,17 +252,13 @@ function InventoryItemCard({
               'w-6 h-6 rounded-full border-2 flex items-center justify-center',
               'transition-all duration-200 cursor-pointer',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400',
-              isCrossedOut
-                ? 'bg-success border-success text-white'
-                : 'border-neutral-300 hover:border-brand-400',
+              'border-neutral-300 hover:border-danger hover:bg-danger-light hover:text-danger',
             ].join(' ')}
-            aria-label={isCrossedOut ? 'Unmark item' : 'Mark item as done'}
+            aria-label="Remove item"
           >
-            {isCrossedOut && (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         )}
         <span
@@ -276,7 +266,7 @@ function InventoryItemCard({
             'inline-flex items-center justify-center',
             'px-3 py-1.5 text-sm font-semibold',
             'rounded-lg',
-            isCrossedOut ? 'bg-neutral-100 text-neutral-400' : badgeBgMap[urgency.level],
+            badgeBgMap[urgency.level],
           ].join(' ')}
         >
           {urgency.days_until_expiration === Infinity

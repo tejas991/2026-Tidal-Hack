@@ -1,4 +1,4 @@
-import { get, put, ApiError, isApiError } from '../client';
+import { get, put, del, ApiError, isApiError } from '../client';
 import type {
   InventoryItem,
   ItemStatus,
@@ -6,7 +6,6 @@ import type {
   BackendExpiringResponse,
   BackendInventoryItem,
   BackendItemStatusResponse,
-  BackendCrossOutResponse,
 } from '../../types';
 
 /* ============================================
@@ -152,39 +151,20 @@ async function updateItemStatus(
 }
 
 /**
- * Toggle the crossed-out state of an inventory item.
+ * Delete an inventory item permanently.
  *
- * Backend route: PUT /api/items/{item_id}/cross-out
+ * Backend route: DELETE /api/items/{item_id}
  *
  * @param itemId - The item's MongoDB ID
- * @returns Updated crossed-out state
+ * @returns Confirmation of deletion
  */
-async function toggleCrossOut(
+async function removeItem(
   itemId: string,
-): Promise<BackendCrossOutResponse> {
-  return put<BackendCrossOutResponse>(
-    `/api/items/${encodeURIComponent(itemId)}/cross-out`,
+): Promise<{ item_id: string; deleted: boolean }> {
+  return del<{ item_id: string; deleted: boolean }>(
+    `/api/items/${encodeURIComponent(itemId)}`,
   );
 }
-
-/**
- * Delete an inventory item.
- *
- * NOTE: This endpoint is not yet implemented on the backend.
- * Use updateItemStatus(id, 'consumed') or updateItemStatus(id, 'wasted') instead.
- * Logs a warning and throws an error.
- *
- * @param id - The item's ID
- */
-async function deleteItem(id: string): Promise<void> {
-  console.warn(
-    '[inventoryApi.deleteItem] Endpoint not yet implemented on backend: DELETE /api/inventory/{id}. ' +
-    'Use updateItemStatus() to mark items as consumed or wasted instead.',
-  );
-  void id;
-  throw new ApiError(501, 'Deleting items is not yet supported. Mark as consumed or wasted instead.');
-}
-
 
 // ---- Public API ----
 
@@ -193,6 +173,5 @@ export const inventoryApi = {
   getExpiring,
   addItem,
   updateItemStatus,
-  toggleCrossOut,
-  deleteItem,
+  removeItem,
 } as const;

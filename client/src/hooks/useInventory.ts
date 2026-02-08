@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { inventoryApi } from '../api/endpoints/inventory';
 import { scanApi } from '../api/endpoints/scan';
-import type { InventoryItem, ItemStatus, BackendScanResponse, BackendItemStatusResponse, BackendCrossOutResponse } from '../types';
+import type { InventoryItem, ItemStatus, BackendScanResponse, BackendItemStatusResponse } from '../types';
 
 /* ============================================
  * FridgeTrack — Inventory Hooks
@@ -99,51 +99,38 @@ export function useUpdateItemStatus(userId: string) {
 }
 
 /**
- * Toggle the crossed-out state of an inventory item.
+ * Remove an inventory item permanently.
  *
- * Optimistically flips `is_crossed_out` in the cache and
+ * Optimistically removes the item from the cache and
  * rolls back on error.
  */
-export function useToggleCrossOut(userId: string) {
+export function useRemoveItem(userId: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<BackendCrossOutResponse, Error, string>({
-    mutationFn: (itemId) => inventoryApi.toggleCrossOut(itemId),
+  return useMutation<{ item_id: string; deleted: boolean }, Error, string>({
+    mutationFn: (itemId) => inventoryApi.removeItem(itemId),
     onMutate: async (itemId) => {
       await queryClient.cancelQueries({ queryKey: inventoryKeys.all(userId) });
-      const previous = queryClient.getQueryData<InventoryItem[]>(inventoryKeys.all(userId));
+      await queryClient.cancelQueries({ queryKey: ['expiring', userId] });
+
+      const previousAll = queryClient.getQueryData<InventoryItem[]>(inventoryKeys.all(userId));
       queryClient.setQueryData<InventoryItem[]>(inventoryKeys.all(userId), (old) =>
-        old?.map((item) =>
-          item.id === itemId ? { ...item, is_crossed_out: !item.is_crossed_out } : item,
-        ),
+        old?.filter((item) => item.id !== itemId),
       );
-      return { previous };
+
+      // Also optimistically remove from all expiring caches
+      queryClient.setQueriesData<InventoryItem[]>({ queryKey: ['expiring', userId] }, (old) =>
+        old?.filter((item) => item.id !== itemId),
+      );
+
+      return { previousAll };
     },
     onError: (_err, _itemId, context: any) => {
-      if (context?.previous) {
-        queryClient.setQueryData(inventoryKeys.all(userId), context.previous);
+      if (context?.previousAll) {
+        queryClient.setQueryData(inventoryKeys.all(userId), context.previousAll);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.all(userId) });
-      queryClient.invalidateQueries({ queryKey: ['expiring', userId] });
-    },
-  });
-}
-
-/**
- * Delete an inventory item.
- *
- * NOTE: Backend endpoint not yet implemented.
- * This mutation will fail with a 501 error.
- * Use useUpdateItemStatus to mark items as consumed or wasted instead.
- */
-export function useDeleteItem(userId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation<void, Error, string>({
-    mutationFn: (id) => inventoryApi.deleteItem(id),
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all(userId) });
       queryClient.invalidateQueries({ queryKey: ['expiring', userId] });
     },
