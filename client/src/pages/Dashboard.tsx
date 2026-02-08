@@ -31,6 +31,22 @@ function getDaysUntil(date: string): number {
   return Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const CATEGORY_MAP: Record<string, string> = {
+  apple: 'Fruits', banana: 'Fruits', 'blue berry': 'Fruits', strawberry: 'Fruits', lemon: 'Fruits',
+  brinjal: 'Vegetables', cabbage: 'Vegetables', capsicum: 'Vegetables', carrot: 'Vegetables',
+  corn: 'Vegetables', cucumber: 'Vegetables', 'green beans': 'Vegetables', 'green chilly': 'Vegetables',
+  'green leaves': 'Vegetables', mushroom: 'Vegetables', potato: 'Vegetables', 'sweet potato': 'Vegetables',
+  tomato: 'Vegetables', ginger: 'Vegetables',
+  butter: 'Dairy', cheese: 'Dairy', 'fresh cream': 'Dairy', milk: 'Dairy',
+  chicken: 'Protein', egg: 'Protein', meat: 'Protein', shrimp: 'Protein',
+  bread: 'Pantry', chocolate: 'Pantry', flour: 'Pantry',
+};
+
+function getCategoryForItem(itemName: string): string {
+  const lower = itemName.toLowerCase().trim();
+  return CATEGORY_MAP[lower] ?? 'Other';
+}
+
 /* ---- Icons (inline SVGs) ---- */
 
 function ItemsIcon() {
@@ -233,7 +249,7 @@ export default function Dashboard() {
   );
 
   const uniqueCategories = useMemo(
-    () => new Set(items.map((i) => i.category).filter(Boolean)).size,
+    () => new Set(items.map((i) => getCategoryForItem(i.item_name))).size,
     [items],
   );
 
