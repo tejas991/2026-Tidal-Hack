@@ -1,0 +1,40 @@
+# YOLOv8 dataset config
+path: /home/claude/server/utils/dataset_yolo  # dataset root dir (absolute path)
+train: train/images  # train images (relative to 'path')
+val: valid/images    # val images (relative to 'path')
+test: test/images    # test images (optional)
+
+# Classes (update based on your actual classes from Roboflow)
+names:
+  0: apple
+  1: banana
+  2: blue berry
+  3: bread
+  4: brinjal
+  5: butter
+  6: cabbage
+  7: capsicum
+  8: carrot
+  9: cheese
+  10: chicken
+  11: chocolate
+  12: corn
+  13: cucumber
+  14: egg
+  15: flour   
+  16: fresh cream
+  17: ginger
+  18: green beans
+  19: green chilly
+  20: green leaves
+  21: lemon
+  22: meat  
+  23: milk
+  24: mushroom
+  25: potato
+  26: shrimp
+  27: stawberry
+  28: sweet potato
+  29: tomato
+
+  # Add more classes as needed based on your dataset
