@@ -4,6 +4,7 @@ import axios, {
   type InternalAxiosRequestConfig,
   type AxiosResponse,
 } from 'axios';
+import { env } from '../config/env';
 
 /* ============================================
  * FridgeTrack — API Client
@@ -11,12 +12,6 @@ import axios, {
  * Centralized axios instance with interceptors,
  * typed error handling, and auth support.
  * ============================================ */
-
-// Vite injects env vars on import.meta.env at build time
-declare const __VITE_API_URL__: string | undefined;
-const BASE_URL =
-  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL
-  ?? 'http://localhost:8000';
 
 
 // ---- API Error ----
@@ -80,7 +75,7 @@ export function clearAuthToken(): void {
 // ---- Create Instance ----
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
+  baseURL: env.API_URL,
   timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
