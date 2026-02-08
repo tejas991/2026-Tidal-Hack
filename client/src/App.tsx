@@ -27,6 +27,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ScanPage = lazy(() => import('./pages/ScanPage'));
 const RecipesPage = lazy(() => import('./pages/RecipesPage'));
 const ShoppingListPage = lazy(() => import('./pages/ShoppingList'));
+const ConnectionTestPage = lazy(() => import('./pages/ConnectionTestPage'));
 
 /* ---- Suspense fallback ---- */
 
@@ -68,6 +69,7 @@ export default function App() {
                   <Route path="/scan" element={<ScanPage />} />
                   <Route path="/recipes" element={<RecipesPage />} />
                   <Route path="/shopping" element={<ShoppingListPage />} />
+                  <Route path="/test-connection" element={<ConnectionTestPage />} />
                 </Routes>
               </Suspense>
             </Layout>

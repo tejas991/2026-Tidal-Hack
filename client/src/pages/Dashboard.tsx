@@ -1,10 +1,11 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import type { InventoryItem, UserStats } from '../types';
 import StatsCard from '../components/features/Dashboard/StatsCard';
 import InventoryItemCard from '../components/features/Inventory/InventoryItemCard';
 import Card, { CardHeader } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
+import { env } from '../config/env';
 
 /* ---- Mock data helpers ---- */
 
@@ -411,6 +412,28 @@ export default function Dashboard() {
           )}
         </Card>
       </section>
+
+      {/* ── Dev-only: Test Connection FAB ── */}
+      {env.IS_DEV && (
+        <Link
+          to="/test-connection"
+          className={[
+            'fixed bottom-6 right-6 z-50',
+            'flex items-center gap-2 px-4 py-2.5',
+            'rounded-full shadow-lg',
+            'bg-neutral-900 text-white text-sm font-medium',
+            'hover:bg-neutral-800 active:bg-neutral-950',
+            'transition-all duration-200 ease-in-out',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400',
+          ].join(' ')}
+          title="Test API Connection"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Test Connection
+        </Link>
+      )}
     </div>
   );
 }
