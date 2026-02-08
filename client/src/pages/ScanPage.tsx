@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { InventoryItem, BackendDetectionResult } from '../types';
 import { scanApi } from '../api/endpoints/scan';
+import { isApiError } from '../api/client';
 import ImageUpload from '../components/features/Scanner/ImageUpload';
 import InventoryItemCard from '../components/features/Inventory/InventoryItemCard';
 import Button from '../components/ui/Button';
@@ -197,6 +198,7 @@ export default function ScanPage() {
   const [progress, setProgress] = useState(0);
   const [detectedItems, setDetectedItems] = useState<InventoryItem[]>([]);
   const [errorType, setErrorType] = useState<ErrorType>('network');
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   // Track if the component is still mounted to avoid state updates after unmount
   const mountedRef = useRef(true);
@@ -210,6 +212,7 @@ export default function ScanPage() {
     setStatus('uploading');
     setProgress(0);
     setDetectedItems([]);
+    setErrorDetail(null);
 
     try {
       const items = await uploadImage(file, (pct) => {
@@ -230,10 +233,35 @@ export default function ScanPage() {
 
       setDetectedItems(items);
       setStatus('success');
-    } catch {
+    } catch (error: unknown) {
       if (!mountedRef.current) return;
+
+      // Classify the error and extract the backend detail message
+      if (isApiError(error)) {
+        const detail = typeof error.data === 'object' && error.data !== null && 'detail' in error.data
+          ? String((error.data as { detail: unknown }).detail)
+          : error.message;
+
+        if (error.status === 400) {
+          setErrorType('no_items');
+          setErrorDetail(detail);
+        } else if (error.status === 0) {
+          setErrorType('network');
+          setErrorDetail(null);
+        } else {
+          setErrorType('server');
+          setErrorDetail(detail);
+        }
+      } else {
+        setErrorType('network');
+        setErrorDetail(null);
+      }
+
       setStatus('error');
-      setErrorType('server');
+    } finally {
+      if (mountedRef.current) {
+        setProgress(0);
+      }
     }
   }, []);
 
@@ -241,6 +269,7 @@ export default function ScanPage() {
     setStatus('idle');
     setProgress(0);
     setDetectedItems([]);
+    setErrorDetail(null);
   }, []);
 
   /* ---- Render: Uploading ---- */
@@ -405,7 +434,7 @@ export default function ScanPage() {
               {err.title}
             </h2>
             <p className="mt-2 text-sm text-neutral-500 leading-relaxed">
-              {err.description}
+              {errorDetail ?? err.description}
             </p>
           </div>
 
