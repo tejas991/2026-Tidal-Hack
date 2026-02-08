@@ -38,6 +38,68 @@ function validateFile(
   return null;
 }
 
+/**
+ * Compress an image using the Canvas API.
+ * Resizes to maxWidth (preserving aspect ratio) and encodes as JPEG at the given quality.
+ */
+function compressImage(
+  file: File,
+  maxWidth = 1920,
+  quality = 0.8,
+): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      // Skip if already small
+      if (img.width <= maxWidth && file.size < 500 * 1024) {
+        resolve(file);
+        return;
+      }
+
+      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          resolve(
+            new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            }),
+          );
+        },
+        'image/jpeg',
+        quality,
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image for compression'));
+    };
+
+    img.src = url;
+  });
+}
+
 /* ---- Icons (inline SVGs) ---- */
 
 function CameraIcon() {
@@ -100,6 +162,7 @@ export default function ImageUpload({
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [fileSize, setFileSize] = useState<number>(0);
+  const [originalSize, setOriginalSize] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,12 +173,13 @@ export default function ImageUpload({
     setPreview(null);
     setFileName('');
     setFileSize(0);
+    setOriginalSize(0);
     setError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
   const processFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       const validationError = validateFile(file, maxSizeMB);
       if (validationError) {
         setState('error');
@@ -124,17 +188,26 @@ export default function ImageUpload({
         return;
       }
 
+      // Compress image (canvas API: max 1920px, 80% quality)
+      let processed: File;
+      try {
+        processed = await compressImage(file);
+      } catch {
+        processed = file; // fallback to original on failure
+      }
+
       // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreview(e.target?.result as string);
-        setFileName(file.name);
-        setFileSize(file.size);
+        setFileName(processed.name);
+        setFileSize(processed.size);
+        setOriginalSize(file.size);
         setState('preview');
         setError('');
-        onUpload(file);
+        onUpload(processed);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(processed);
     },
     [maxSizeMB, onUpload],
   );
@@ -287,6 +360,11 @@ export default function ImageUpload({
             <span className="ml-1.5 text-neutral-400">
               ({formatFileSize(fileSize)})
             </span>
+            {originalSize > 0 && originalSize !== fileSize && (
+              <span className="ml-1 text-xs text-success-dark">
+                compressed from {formatFileSize(originalSize)}
+              </span>
+            )}
           </p>
           {!isUploading && (
             <button

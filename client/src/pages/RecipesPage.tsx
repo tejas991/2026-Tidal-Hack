@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { Recipe, RecipeDifficulty } from '../types';
 import RecipeCard from '../components/features/Recipes/RecipeCard';
 import Button from '../components/ui/Button';
@@ -372,13 +372,17 @@ export default function RecipesPage() {
     setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  /* ---- Filtered recipes ---- */
+  /* ---- Filtered recipes (memoized) ---- */
 
-  const filtered = recipes.filter((r) => {
-    if (expiringOnly && r.uses_expiring_items.length === 0) return false;
-    if (difficulty !== 'all' && r.difficulty !== difficulty) return false;
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      recipes.filter((r) => {
+        if (expiringOnly && r.uses_expiring_items.length === 0) return false;
+        if (difficulty !== 'all' && r.difficulty !== difficulty) return false;
+        return true;
+      }),
+    [recipes, expiringOnly, difficulty],
+  );
 
   const showFilters = status === 'loaded' && recipes.length > 0;
 

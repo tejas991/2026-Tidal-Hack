@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type {
   ExpirationUrgency,
   ExpirationUrgencyLevel,
@@ -108,7 +109,7 @@ interface InventoryItemCardProps {
   onClick?: () => void;
 }
 
-export default function InventoryItemCard({
+function InventoryItemCard({
   item,
   onClick,
 }: InventoryItemCardProps) {
@@ -225,3 +226,5 @@ export default function InventoryItemCard({
     </div>
   );
 }
+
+export default memo(InventoryItemCard);

@@ -1,4 +1,4 @@
-import { type HTMLAttributes, type ReactNode } from 'react';
+import { memo, type HTMLAttributes, type ReactNode } from 'react';
 
 /* ---- Types ---- */
 
@@ -99,7 +99,7 @@ function SkeletonPulse({ className }: { className: string }) {
 
 /* ---- Component ---- */
 
-export default function StatsCard({
+function StatsCard({
   value,
   label,
   icon,
@@ -189,3 +189,5 @@ export default function StatsCard({
     </div>
   );
 }
+
+export default memo(StatsCard);

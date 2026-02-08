@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, type FormEvent } from 'react';
 import type { ShoppingListItem, FoodCategory } from '../types';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -161,7 +161,7 @@ interface ShoppingItemRowProps {
   onDelete: (id: string) => void;
 }
 
-function ShoppingItemRow({ item, onToggle, onDelete }: ShoppingItemRowProps) {
+const ShoppingItemRow = memo(function ShoppingItemRow({ item, onToggle, onDelete }: ShoppingItemRowProps) {
   const shopCat = toShoppingCategory(item.category);
 
   return (
@@ -248,7 +248,7 @@ function ShoppingItemRow({ item, onToggle, onDelete }: ShoppingItemRowProps) {
       </button>
     </div>
   );
-}
+});
 
 /* ---- Page Component ---- */
 
@@ -303,29 +303,42 @@ export default function ShoppingListPage() {
     setItems((prev) => prev.filter((item) => !item.purchased));
   }, []);
 
-  // Category counts
-  const categoryCounts: Record<ShoppingCategory, number> = {
-    all:     items.length,
-    produce: items.filter((i) => toShoppingCategory(i.category) === 'produce').length,
-    dairy:   items.filter((i) => toShoppingCategory(i.category) === 'dairy').length,
-    protein: items.filter((i) => toShoppingCategory(i.category) === 'protein').length,
-    pantry:  items.filter((i) => toShoppingCategory(i.category) === 'pantry').length,
-    other:   items.filter((i) => toShoppingCategory(i.category) === 'other').length,
-  };
+  // Category counts (memoized)
+  const categoryCounts = useMemo<Record<ShoppingCategory, number>>(
+    () => ({
+      all:     items.length,
+      produce: items.filter((i) => toShoppingCategory(i.category) === 'produce').length,
+      dairy:   items.filter((i) => toShoppingCategory(i.category) === 'dairy').length,
+      protein: items.filter((i) => toShoppingCategory(i.category) === 'protein').length,
+      pantry:  items.filter((i) => toShoppingCategory(i.category) === 'pantry').length,
+      other:   items.filter((i) => toShoppingCategory(i.category) === 'other').length,
+    }),
+    [items],
+  );
 
-  const purchasedCount = items.filter((i) => i.purchased).length;
+  const purchasedCount = useMemo(
+    () => items.filter((i) => i.purchased).length,
+    [items],
+  );
 
-  // Filter by active tab
-  const filteredItems =
-    activeTab === 'all'
-      ? items
-      : items.filter((item) => toShoppingCategory(item.category) === activeTab);
+  // Filter by active tab (memoized)
+  const filteredItems = useMemo(
+    () =>
+      activeTab === 'all'
+        ? items
+        : items.filter((item) => toShoppingCategory(item.category) === activeTab),
+    [items, activeTab],
+  );
 
-  // Sort: unpurchased first, then newest first
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    if (a.purchased !== b.purchased) return a.purchased ? 1 : -1;
-    return new Date(b.added_at).getTime() - new Date(a.added_at).getTime();
-  });
+  // Sort: unpurchased first, then newest first (memoized)
+  const sortedItems = useMemo(
+    () =>
+      [...filteredItems].sort((a, b) => {
+        if (a.purchased !== b.purchased) return a.purchased ? 1 : -1;
+        return new Date(b.added_at).getTime() - new Date(a.added_at).getTime();
+      }),
+    [filteredItems],
+  );
 
   return (
     <div className="space-y-6">

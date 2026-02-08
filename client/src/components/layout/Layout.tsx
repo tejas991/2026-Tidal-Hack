@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /* ---- Types ---- */
@@ -164,6 +164,15 @@ const navItems: NavItem[] = [
   { path: '/shopping', label: 'Shopping',  icon: <ShoppingIcon /> },
 ];
 
+/* ---- Route chunk preloading ---- */
+
+const routePreloaders: Record<string, () => void> = {
+  '/':         () => { import('../../pages/Dashboard'); },
+  '/scan':     () => { import('../../pages/ScanPage'); },
+  '/recipes':  () => { import('../../pages/RecipesPage'); },
+  '/shopping': () => { import('../../pages/ShoppingList'); },
+};
+
 /* ---- Component ---- */
 
 export default function Layout({ children }: LayoutProps) {
@@ -172,6 +181,10 @@ export default function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  const preloadRoute = useCallback((path: string) => {
+    routePreloaders[path]?.();
+  }, []);
 
   return (
     <div className="min-h-dvh flex flex-col bg-neutral-50">
@@ -216,6 +229,7 @@ export default function Layout({ children }: LayoutProps) {
                 key={item.path}
                 type="button"
                 onClick={() => navigate(item.path)}
+                onMouseEnter={() => preloadRoute(item.path)}
                 className={[
                   'flex items-center gap-2 px-4 py-2 rounded-lg',
                   'text-sm font-medium',
@@ -266,6 +280,7 @@ export default function Layout({ children }: LayoutProps) {
               key={item.path}
               type="button"
               onClick={() => navigate(item.path)}
+              onMouseEnter={() => preloadRoute(item.path)}
               className={[
                 'flex-1 flex flex-col items-center gap-1',
                 'py-2.5 pt-3',

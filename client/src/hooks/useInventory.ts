@@ -37,6 +37,7 @@ export function useInventory(userId: string) {
     queryKey: inventoryKeys.all(userId),
     queryFn: () => inventoryApi.getAll(userId),
     enabled: userId.length > 0,
+    staleTime: 5 * 60 * 1_000,
   });
 }
 
