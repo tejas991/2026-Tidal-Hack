@@ -161,24 +161,30 @@ export async function del<T = void>(url: string): Promise<T> {
 
 /**
  * Upload a file via multipart/form-data.
- * Timeout extended to 60s for image processing.
+ * Uses native fetch() instead of axios so the browser correctly sets
+ * the Content-Type header with the multipart boundary.
  */
 export async function upload<T>(
   url: string,
   formData: FormData,
-  onProgress?: (percent: number) => void,
+  _onProgress?: (percent: number) => void,
 ): Promise<T> {
-  const response = await apiClient.post<T>(url, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 300_000,
-    onUploadProgress: onProgress
-      ? (e) => {
-          const percent = e.total ? Math.round((e.loaded / e.total) * 100) : 0;
-          onProgress(percent);
-        }
-      : undefined,
+  const baseUrl = env.IS_DEV ? '' : env.API_URL;
+
+  const response = await fetch(`${baseUrl}${url}`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+    // Do NOT set Content-Type — the browser auto-adds multipart boundary
   });
-  return response.data;
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const detail = data?.detail ?? data?.message ?? response.statusText;
+    throw new ApiError(response.status, detail, data);
+  }
+
+  return response.json() as Promise<T>;
 }
 
 

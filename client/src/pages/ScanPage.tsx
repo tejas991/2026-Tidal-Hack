@@ -9,7 +9,7 @@ import Button from '../components/ui/Button';
 
 /* ---- Types ---- */
 
-type ScanStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error';
+type ScanStatus = 'idle' | 'processing' | 'success' | 'error';
 type ErrorType = 'network' | 'server' | 'no_items';
 
 /* ---- Helpers ---- */
@@ -46,21 +46,6 @@ async function uploadImage(
 }
 
 /* ---- Icons (inline SVGs) ---- */
-
-function CameraIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
 
 function CheckCircleIcon() {
   return (
@@ -165,33 +150,12 @@ function SkeletonCard() {
   );
 }
 
-/* ---- Progress bar ---- */
-
-function ProgressBar({ value }: { value: number }) {
-  return (
-    <div className="w-full bg-neutral-200 rounded-full h-2 overflow-hidden">
-      <div
-        className={[
-          'h-full rounded-full bg-brand-500',
-          'transition-all duration-300 ease-out',
-        ].join(' ')}
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-        role="progressbar"
-        aria-valuenow={value}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      />
-    </div>
-  );
-}
-
 /* ---- Component ---- */
 
 export default function ScanPage() {
   const navigate = useNavigate();
 
   const [status, setStatus] = useState<ScanStatus>('idle');
-  const [progress, setProgress] = useState(0);
   const [detectedItems, setDetectedItems] = useState<InventoryItem[]>([]);
   const [errorType, setErrorType] = useState<ErrorType>('network');
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
@@ -205,27 +169,17 @@ export default function ScanPage() {
   /* ---- Handlers ---- */
 
   const handleUpload = useCallback(async (file: File) => {
-    setStatus('uploading');
-    setProgress(0);
+    // Go straight to "processing" — the upload + detection is a single request
+    // and Vite proxy strips Content-Length so progress tracking never works.
+    setStatus('processing');
     setDetectedItems([]);
     setErrorDetail(null);
 
     let succeeded = false;
 
-    // Switch to processing state after a short delay in case progress never updates
-    // (Vite proxy strips Content-Length so onProgress always reports 0%)
-    const processingTimer = setTimeout(() => {
-      if (mountedRef.current) setStatus('processing');
-    }, 2000);
-
     try {
-      const items = await uploadImage(file, (pct) => {
-        if (!mountedRef.current) return;
-        setProgress(pct);
-        if (pct >= 100) {
-          clearTimeout(processingTimer);
-          setStatus('processing');
-        }
+      const items = await uploadImage(file, () => {
+        // Progress callback intentionally ignored — proxy makes it unreliable
       });
 
       if (items.length === 0) {
@@ -265,11 +219,7 @@ export default function ScanPage() {
         setErrorType('server');
       }
     } finally {
-      clearTimeout(processingTimer);
       if (!mountedRef.current) return;
-      setProgress(0);
-      // Safety net: if we didn't reach success, force the error screen
-      // so the UI never stays stuck on 'uploading' or 'processing'.
       if (!succeeded) {
         setStatus('error');
       }
@@ -278,31 +228,9 @@ export default function ScanPage() {
 
   const handleReset = useCallback(() => {
     setStatus('idle');
-    setProgress(0);
     setDetectedItems([]);
     setErrorDetail(null);
   }, []);
-
-  /* ---- Render: Uploading ---- */
-
-  if (status === 'uploading') {
-    return (
-      <div className="space-y-8">
-        <PageHeader />
-        <div className="flex flex-col items-center gap-6 py-12">
-          <div className="text-brand-500">
-            <CameraIcon />
-          </div>
-          <div className="w-full max-w-sm space-y-3">
-            <ProgressBar value={progress} />
-            <p className="text-center text-sm text-neutral-500">
-              Uploading image… {progress}%
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   /* ---- Render: Processing ---- */
 
