@@ -40,21 +40,13 @@ class FoodDetector:
             self.mock_mode = True
             return
 
-        try:
-            from roboflow import Roboflow
+        import requests as _requests  # verify requests is available
 
-            workspace = os.getenv('ROBOFLOW_WORKSPACE', 'security-detection')
-            project_name = os.getenv('ROBOFLOW_PROJECT', 'fridge-food-images-suzmb')
-            version = int(os.getenv('ROBOFLOW_VERSION', '2'))
-
-            rf = Roboflow(api_key=api_key)
-            project = rf.workspace(workspace).project(project_name)
-            self.model = project.version(version).model
-            print(f"✅ Loaded Roboflow model: {workspace}/{project_name} v{version}")
-        except Exception as e:
-            print(f"⚠️  Failed to load Roboflow model: {e}")
-            print("   Falling back to mock detection")
-            self.mock_mode = True
+        self.api_key = api_key
+        self.workspace = os.getenv('ROBOFLOW_WORKSPACE', 'security-detection')
+        self.workflow_id = os.getenv('ROBOFLOW_WORKFLOW_ID', 'detect-count-and-visualize-5')
+        self.api_url = "https://serverless.roboflow.com"
+        print(f"✅ Roboflow workflow ready: {self.workspace}/{self.workflow_id}")
 
     def detect_items(self, image_path: str, confidence_threshold: float = 0.4) -> List[dict]:
         """
@@ -71,30 +63,47 @@ class FoodDetector:
             return self._mock_detect(image_path)
 
         try:
-            result = self.model.predict(
-                image_path,
-                confidence=int(confidence_threshold * 100),
-                overlap=30,
-            ).json()
+            import requests
+            import base64
+
+            with open(image_path, "rb") as f:
+                image_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+            url = f"{self.api_url}/{self.workspace}/workflows/{self.workflow_id}"
+            response = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json={
+                    "api_key": self.api_key,
+                    "inputs": {
+                        "image": {"type": "base64", "value": image_b64}
+                    }
+                }
+            )
+            response.raise_for_status()
+            result = response.json()
 
             detections = []
-            for pred in result.get('predictions', []):
-                # Roboflow returns center x, y, width, height
-                cx = int(pred['x'])
-                cy = int(pred['y'])
-                w = int(pred['width'])
-                h = int(pred['height'])
-                x1 = cx - w // 2
-                y1 = cy - h // 2
-                x2 = cx + w // 2
-                y2 = cy + h // 2
+            outputs = result.get('outputs', [])
+            if outputs:
+                predictions = outputs[0].get('predictions', {}).get('predictions', [])
+                for pred in predictions:
+                    # Roboflow returns center x, y, width, height
+                    cx = int(pred.get('x', 0))
+                    cy = int(pred.get('y', 0))
+                    w = int(pred.get('width', 0))
+                    h = int(pred.get('height', 0))
+                    x1 = cx - w // 2
+                    y1 = cy - h // 2
+                    x2 = cx + w // 2
+                    y2 = cy + h // 2
 
-                detection = {
-                    "item_name": pred.get('class', 'unknown'),
-                    "confidence": round(float(pred.get('confidence', 0)), 3),
-                    "bounding_box": [x1, y1, x2, y2],
-                }
-                detections.append(detection)
+                    detection = {
+                        "item_name": pred.get('class', 'unknown'),
+                        "confidence": round(float(pred.get('confidence', 0)), 3),
+                        "bounding_box": [x1, y1, x2, y2],
+                    }
+                    detections.append(detection)
 
             print(f"🔍 Detected {len(detections)} items in image")
             return detections
