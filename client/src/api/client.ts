@@ -78,7 +78,7 @@ const apiClient: AxiosInstance = axios.create({
   // In development, use empty baseURL so requests go through the Vite dev proxy.
   // In production, use the full backend URL from environment config.
   baseURL: env.IS_DEV ? '' : env.API_URL,
-  timeout: 300_000,
+  timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -172,16 +172,26 @@ export async function upload<T>(
 
   console.log('[upload] Starting fetch to', fullUrl);
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
   let response: Response;
   try {
     response = await fetch(fullUrl, {
       method: 'POST',
       body: formData,
+      signal: controller.signal,
     });
   } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      console.error('[upload] Request timed out after 30s');
+      throw new ApiError(408, 'Upload timed out. Try a smaller image or check your connection.');
+    }
     console.error('[upload] fetch() threw:', err);
     throw new ApiError(0, 'Connection failed. Check your internet.');
   }
+  clearTimeout(timeoutId);
 
   console.log('[upload] Response status:', response.status);
 
