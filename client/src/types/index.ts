@@ -256,3 +256,12 @@ export interface BackendItemStatusResponse {
   message: string;
   item_id: string;
 }
+
+export interface BackendStatsResponse {
+  total_items_tracked: number;
+  items_saved: number;
+  items_wasted: number;
+  money_saved: number;
+  pounds_saved: number;
+  co2_saved: number;
+}

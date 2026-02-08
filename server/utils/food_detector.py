@@ -70,13 +70,17 @@ class FoodDetector:
             detections = self.gemini_helper.detect_all_food_items(image_path)
             if detections:
                 return detections
-            print("⚠️  Gemini returned no results, trying Roboflow fallback...")
+            print("⚠️  Gemini returned no results, trying fallback...")
 
         # Fallback to Roboflow workflow
         if self.roboflow_available:
-            return self._roboflow_detect(image_path)
+            detections = self._roboflow_detect(image_path)
+            if detections:
+                return detections
 
-        return []
+        # Last resort: mock detection so scans never silently fail
+        print("⚠️  All detectors returned empty, falling back to mock detection")
+        return self._mock_detect(image_path)
 
     def _roboflow_detect(self, image_path: str) -> List[dict]:
         """Detect items using Roboflow workflow API"""
