@@ -1,7 +1,6 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Recipe, RecipeDifficulty } from '../types';
-import { recipesApi } from '../api/endpoints/recipes';
 import RecipeCard from '../components/features/Recipes/RecipeCard';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
@@ -197,32 +196,61 @@ export default function RecipesPage() {
   const [expiringOnly, setExpiringOnly] = useState(false);
   const [difficulty, setDifficulty] = useState<DifficultyFilter>('all');
 
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
   /* ---- Generate recipes ---- */
 
   const handleGenerate = useCallback(async () => {
     setStatus('loading');
     setError('');
-    let nextStatus: PageStatus = 'loaded';
+    let mapped: Recipe[] = [];
+    let failed = false;
 
     try {
-      const result = await recipesApi.generate(USER_ID);
-      setRecipes(result);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Something went wrong.',
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+
+      const res = await fetch(
+        `/api/recipes/${USER_ID}?days=7`,
+        { signal: controller.signal },
       );
-      nextStatus = 'error';
-    } finally {
-      if (mountedRef.current) {
-        setStatus(nextStatus);
+      clearTimeout(timeout);
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.detail || data.message || `Server error ${res.status}`,
+        );
       }
+
+      const rawRecipes = data.recipes ?? [];
+      mapped = rawRecipes.map(
+        (raw: { name: string; prep_time: string; ingredients: string[]; instructions: string[]; items_used: string[] }, i: number): Recipe => ({
+          id: `generated-${i}`,
+          name: raw.name,
+          prep_time_minutes: parseInt(raw.prep_time, 10) || 0,
+          ingredients: (raw.ingredients ?? []).map((name: string) => ({
+            name,
+            amount: 1,
+            in_inventory: true,
+          })),
+          instructions: raw.instructions ?? [],
+          uses_expiring_items: raw.items_used ?? [],
+        }),
+      );
+    } catch (err) {
+      failed = true;
+      const msg =
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'Request timed out. Is the backend running?'
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong.';
+      setError(msg);
+      console.error('[RecipesPage] generate failed:', err);
+    } finally {
+      // Guarantee we ALWAYS exit loading — no matter what happened above
+      setRecipes(mapped);
+      setStatus(failed ? 'error' : 'loaded');
     }
   }, []);
 
