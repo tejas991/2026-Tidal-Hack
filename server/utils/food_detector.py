@@ -39,7 +39,7 @@ class FoodDetector:
             self.api_key = api_key
             self.workspace = os.getenv('ROBOFLOW_WORKSPACE', 'security-detection')
             self.workflow_id = os.getenv('ROBOFLOW_WORKFLOW_ID', 'detect-count-and-visualize-5')
-            self.api_url = "https://serverless.roboflow.com"
+            self.api_url = os.getenv('ROBOFLOW_API_URL', 'https://serverless.roboflow.com')
             self.roboflow_available = True
             print(f"  ✅ Roboflow workflow ready (fallback): {self.workspace}/{self.workflow_id}")
 
