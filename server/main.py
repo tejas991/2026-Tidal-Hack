@@ -259,12 +259,11 @@ async def get_inventory(user_id: str, status: str = "active"):
     db = get_database()
 
     try:
-        items_cursor = db.inventory_items.find({
-            "user_id": user_id,
-            "status": status
-        }).sort("detected_at", -1)
+        query = {"user_id": user_id, "status": status}
+        total_count = await db.inventory_items.count_documents(query)
 
-        items = await items_cursor.to_list(length=100)
+        items_cursor = db.inventory_items.find(query).sort("detected_at", -1)
+        items = await items_cursor.to_list(length=500)
 
         # Convert ObjectId to string
         for item in items:
@@ -275,7 +274,7 @@ async def get_inventory(user_id: str, status: str = "active"):
         return {
             "user_id": user_id,
             "items": items,
-            "total": len(items)
+            "total": total_count
         }
 
     except Exception as e:

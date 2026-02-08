@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type {
   ExpirationUrgency,
   ExpirationUrgencyLevel,
@@ -7,7 +7,18 @@ import type {
 
 /* ---- Utilities ---- */
 
+/** Returns true if the date string is missing or produces an invalid Date. */
+function isValidDate(date: string): boolean {
+  if (!date) return false;
+  const d = new Date(date);
+  return !Number.isNaN(d.getTime());
+}
+
 export function getExpirationUrgency(date: string): ExpirationUrgency {
+  if (!isValidDate(date)) {
+    return { level: 'fresh', days_until_expiration: Infinity, color: 'neutral', label: 'No expiry' };
+  }
+
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
@@ -33,6 +44,7 @@ export function getExpirationUrgency(date: string): ExpirationUrgency {
 }
 
 export function formatDate(iso: string): string {
+  if (!isValidDate(iso)) return 'No Expiry Set';
   const date = new Date(iso);
   return date.toLocaleDateString('en-US', {
     month: 'short',
@@ -116,6 +128,8 @@ function InventoryItemCard({
   const urgency = getExpirationUrgency(item.expiration_date);
   const isClickable = Boolean(onClick);
   const isLowConfidence = item.confidence_score < 0.8;
+  const confidencePct = Math.round(item.confidence_score * 100);
+  const [imgError, setImgError] = useState(false);
 
   return (
     <div
@@ -154,16 +168,29 @@ function InventoryItemCard({
         .filter(Boolean)
         .join(' ')}
     >
-      {/* Thumbnail */}
-      {item.image_url && (
-        <div className="hidden sm:block shrink-0">
+      {/* Thumbnail / Fallback Avatar */}
+      <div className="hidden sm:block shrink-0">
+        {item.image_url && !imgError ? (
           <img
             src={item.image_url}
             alt={item.item_name}
             className="w-12 h-12 rounded-lg object-cover border border-neutral-200"
+            onError={() => setImgError(true)}
           />
-        </div>
-      )}
+        ) : (
+          <div
+            className={[
+              'w-12 h-12 rounded-lg border border-neutral-200',
+              'flex items-center justify-center',
+              'bg-brand-100 text-brand-600 font-bold text-lg',
+              'select-none uppercase',
+            ].join(' ')}
+            aria-hidden="true"
+          >
+            {item.item_name.charAt(0)}
+          </div>
+        )}
+      </div>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
@@ -172,19 +199,19 @@ function InventoryItemCard({
           <h3 className="text-base font-semibold text-neutral-900 capitalize truncate">
             {item.item_name}
           </h3>
-          {isLowConfidence && (
-            <span
-              className={[
-                'inline-flex items-center gap-1 shrink-0',
-                'px-1.5 py-0.5 text-xs font-medium',
-                'rounded-full bg-warning-light text-warning-dark border border-warning',
-              ].join(' ')}
-              aria-label={`Low confidence: ${Math.round(item.confidence_score * 100)}%`}
-            >
-              <AlertIcon />
-              {Math.round(item.confidence_score * 100)}%
-            </span>
-          )}
+          <span
+            className={[
+              'inline-flex items-center gap-1 shrink-0',
+              'px-1.5 py-0.5 text-xs font-medium rounded-full',
+              isLowConfidence
+                ? 'bg-warning-light text-warning-dark border border-warning'
+                : 'bg-success-light text-success-dark border border-success',
+            ].join(' ')}
+            aria-label={`Confidence: ${confidencePct}%`}
+          >
+            {isLowConfidence && <AlertIcon />}
+            {confidencePct}%
+          </span>
         </div>
 
         {/* Bottom row: date + category */}
@@ -218,9 +245,11 @@ function InventoryItemCard({
             badgeBgMap[urgency.level],
           ].join(' ')}
         >
-          {urgency.level === 'expired'
-            ? `${Math.abs(urgency.days_until_expiration)}d ago`
-            : urgency.label}
+          {urgency.days_until_expiration === Infinity
+            ? 'No expiry'
+            : urgency.level === 'expired'
+              ? `${Math.abs(urgency.days_until_expiration)}d ago`
+              : urgency.label}
         </span>
       </div>
     </div>

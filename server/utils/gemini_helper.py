@@ -28,7 +28,7 @@ class GeminiHelper:
 
         try:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-2.0-flash')
             print("✅ Initialized Gemini AI")
         except Exception as e:
             print(f"❌ Error initializing Gemini: {e}")

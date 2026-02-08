@@ -1,74 +1,35 @@
+import { useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import type { InventoryItem, UserStats } from '../types';
+import type { InventoryItem } from '../types';
+import { useInventory, useExpiringItems } from '../hooks/useInventory';
 import StatsCard from '../components/features/Dashboard/StatsCard';
 import InventoryItemCard from '../components/features/Inventory/InventoryItemCard';
 import Card, { CardHeader } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
+import { InventoryItemSkeleton } from '../components/ui/LoadingSkeleton';
 import { env } from '../config/env';
 
-/* ---- Mock data helpers ---- */
+/* ---- Constants ---- */
 
-function daysFromNow(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+const USER_ID = 'demo_user';
+const EXPIRING_DAYS = 7;
+
+/* ---- Helpers ---- */
 
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US');
 }
 
-/* ---- Mock data ---- */
-
-const mockItems: InventoryItem[] = [
-  { id: '1', user_id: 'u1', item_name: 'Greek yogurt',    expiration_date: daysFromNow(0),  detected_at: daysFromNow(-5), confidence_score: 0.95, category: 'dairy',   quantity: 2 },
-  { id: '2', user_id: 'u1', item_name: 'Chicken breast',  expiration_date: daysFromNow(1),  detected_at: daysFromNow(-3), confidence_score: 0.92, category: 'meat',    quantity: 1 },
-  { id: '3', user_id: 'u1', item_name: 'Baby spinach',    expiration_date: daysFromNow(2),  detected_at: daysFromNow(-4), confidence_score: 0.88, category: 'produce', quantity: 1 },
-  { id: '4', user_id: 'u1', item_name: 'Milk',            expiration_date: daysFromNow(3),  detected_at: daysFromNow(-6), confidence_score: 0.97, category: 'dairy',   quantity: 1 },
-  { id: '5', user_id: 'u1', item_name: 'Bell peppers',    expiration_date: daysFromNow(5),  detected_at: daysFromNow(-2), confidence_score: 0.73, category: 'produce', quantity: 3 },
-  { id: '6', user_id: 'u1', item_name: 'Cheddar cheese',  expiration_date: daysFromNow(10), detected_at: daysFromNow(-1), confidence_score: 0.91, category: 'dairy',   quantity: 1 },
-  { id: '7', user_id: 'u1', item_name: 'Eggs',            expiration_date: daysFromNow(14), detected_at: daysFromNow(-7), confidence_score: 0.99, category: 'dairy',   quantity: 12 },
-];
-
-const mockStats: UserStats = {
-  total_items_tracked: 47,
-  items_saved: 38,
-  items_wasted: 9,
-  estimated_savings_usd: 127.5,
-  pounds_saved: 23.4,
-  co2_saved_kg: 42.8,
-  scans_this_month: 12,
-};
-
-/* ---- Derived data ---- */
-
 function getDaysUntil(date: string): number {
+  if (!date) return Infinity;
+  const exp = new Date(date);
+  if (Number.isNaN(exp.getTime())) return Infinity;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const exp = new Date(date);
   exp.setHours(0, 0, 0, 0);
   return Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
-
-const urgentItems = mockItems.filter((item) => {
-  const days = getDaysUntil(item.expiration_date);
-  return days >= 0 && days <= 2;
-});
-
-const expiringItems = mockItems
-  .filter((item) => {
-    const days = getDaysUntil(item.expiration_date);
-    return days >= 0 && days <= 7;
-  })
-  .sort(
-    (a, b) =>
-      new Date(a.expiration_date).getTime() -
-      new Date(b.expiration_date).getTime(),
-  );
 
 /* ---- Icons (inline SVGs) ---- */
 
@@ -93,19 +54,6 @@ function ItemsIcon() {
   );
 }
 
-function DollarIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M16 8h-2a3 3 0 0 0 0 6h0a3 3 0 0 1 0 6H8M12 3v3m0 12v3"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 function LeafIcon() {
   return (
@@ -233,39 +181,6 @@ function CheckIcon() {
   );
 }
 
-/* ---- Stats config ---- */
-
-const statsConfig = [
-  {
-    value: formatNumber(mockStats.total_items_tracked),
-    label: 'Items Tracked',
-    icon: <ItemsIcon />,
-    color: 'brand' as const,
-    trend: { value: 12, direction: 'up' as const, label: 'this month' },
-  },
-  {
-    value: `$${formatNumber(Math.round(mockStats.estimated_savings_usd))}`,
-    label: 'Money Saved',
-    icon: <DollarIcon />,
-    color: 'success' as const,
-    trend: { value: 8, direction: 'up' as const, label: 'vs last month' },
-  },
-  {
-    value: `${mockStats.pounds_saved} lbs`,
-    label: 'Food Saved',
-    icon: <LeafIcon />,
-    color: 'success' as const,
-    trend: { value: 15, direction: 'up' as const, label: 'this month' },
-  },
-  {
-    value: `${mockStats.co2_saved_kg} kg`,
-    label: 'CO\u2082 Reduced',
-    icon: <CloudIcon />,
-    color: 'brand' as const,
-    trend: { value: 10, direction: 'up' as const, label: 'this month' },
-  },
-];
-
 /* ---- Quick actions ---- */
 
 const quickActions = [
@@ -278,7 +193,81 @@ const quickActions = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
+
+  // ---- Data fetching ----
+  const {
+    data: items = [],
+    isLoading: itemsLoading,
+  } = useInventory(USER_ID);
+
+  const {
+    data: expiringItems = [],
+    isLoading: expiringLoading,
+  } = useExpiringItems(USER_ID, EXPIRING_DAYS);
+
+  // ---- Derived data (all computed from the live inventory array) ----
+  const urgentItems = useMemo(
+    () => items.filter((item: InventoryItem) => {
+      const days = getDaysUntil(item.expiration_date);
+      return days >= 0 && days <= 2;
+    }),
+    [items],
+  );
+
+  const sortedExpiringItems = useMemo(
+    () => [...expiringItems].sort(
+      (a, b) =>
+        new Date(a.expiration_date).getTime() -
+        new Date(b.expiration_date).getTime(),
+    ),
+    [expiringItems],
+  );
+
+  const recentItems = useMemo(
+    () => [...items]
+      .sort((a, b) =>
+        new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime(),
+      )
+      .slice(0, 8),
+    [items],
+  );
+
+  const uniqueCategories = useMemo(
+    () => new Set(items.map((i) => i.category).filter(Boolean)).size,
+    [items],
+  );
+
   const urgentCount = urgentItems.length;
+
+  // ---- Stats config (computed from fetched inventory) ----
+  const statsConfig = [
+    {
+      value: formatNumber(items.length),
+      label: 'Total Items',
+      icon: <ItemsIcon />,
+      color: 'brand' as const,
+    },
+    {
+      value: formatNumber(expiringItems.length),
+      label: 'Expiring Soon',
+      icon: <WarningIcon />,
+      color: expiringItems.length > 0 ? 'danger' as const : 'success' as const,
+    },
+    {
+      value: formatNumber(uniqueCategories),
+      label: 'Categories',
+      icon: <LeafIcon />,
+      color: 'success' as const,
+    },
+    {
+      value: formatNumber(recentItems.length),
+      label: 'Recently Added',
+      icon: <CloudIcon />,
+      color: 'brand' as const,
+    },
+  ];
+
+  const isExpiringLoading = itemsLoading || expiringLoading;
 
   return (
     <div className="space-y-8">
@@ -293,7 +282,7 @@ export default function Dashboard() {
       </section>
 
       {/* ── Urgent Alert ── */}
-      {urgentCount > 0 && (
+      {!itemsLoading && urgentCount > 0 && (
         <div
           role="alert"
           className={[
@@ -328,7 +317,7 @@ export default function Dashboard() {
       <section>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statsConfig.map((stat) => (
-            <StatsCard key={stat.label} {...stat} />
+            <StatsCard key={stat.label} {...stat} loading={itemsLoading} />
           ))}
         </div>
       </section>
@@ -395,9 +384,15 @@ export default function Dashboard() {
               }
             />
           </div>
-          {expiringItems.length > 0 ? (
+          {isExpiringLoading ? (
             <div className="px-5 pb-5 space-y-3">
-              {expiringItems.map((item) => (
+              <InventoryItemSkeleton />
+              <InventoryItemSkeleton />
+              <InventoryItemSkeleton />
+            </div>
+          ) : sortedExpiringItems.length > 0 ? (
+            <div className="px-5 pb-5 space-y-3">
+              {sortedExpiringItems.map((item) => (
                 <InventoryItemCard key={item.id} item={item} />
               ))}
             </div>
@@ -407,6 +402,47 @@ export default function Dashboard() {
                 icon={<CheckIcon />}
                 title="All clear!"
                 description="No items are expiring in the next 7 days. Great job managing your food!"
+              />
+            </div>
+          )}
+        </Card>
+      </section>
+
+      {/* ── Recent Items ── */}
+      <section>
+        <Card padding="none">
+          <div className="p-5 pb-0">
+            <CardHeader
+              title="Recent Items"
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/scan')}
+                >
+                  Scan More
+                </Button>
+              }
+            />
+          </div>
+          {itemsLoading ? (
+            <div className="px-5 pb-5 space-y-3">
+              <InventoryItemSkeleton />
+              <InventoryItemSkeleton />
+              <InventoryItemSkeleton />
+            </div>
+          ) : recentItems.length > 0 ? (
+            <div className="px-5 pb-5 space-y-3">
+              {recentItems.map((item) => (
+                <InventoryItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          ) : (
+            <div className="px-5 pb-5">
+              <EmptyState
+                icon={<CameraIcon />}
+                title="No items yet"
+                description="Scan your fridge to start tracking your food inventory!"
               />
             </div>
           )}
