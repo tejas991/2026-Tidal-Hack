@@ -5,6 +5,7 @@ This file handles the connection to MongoDB Atlas
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 import os
+import certifi
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,7 +24,12 @@ async def connect_to_mongo():
     Raises on failure so the caller can decide whether to continue."""
     global client, database
     try:
-        client = AsyncIOMotorClient(MONGODB_URL, serverSelectionTimeoutMS=5000)
+        client = AsyncIOMotorClient(
+            MONGODB_URL,
+            serverSelectionTimeoutMS=5000,
+            tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=True,
+        )
         database = client[DATABASE_NAME]
 
         # Test the connection
