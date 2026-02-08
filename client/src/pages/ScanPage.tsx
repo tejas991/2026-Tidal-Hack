@@ -400,7 +400,7 @@ export default function ScanPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => navigate('/inventory')}
+            onClick={() => navigate('/dashboard')}
             leftIcon={<InventoryIcon />}
             className="w-full md:w-auto min-h-[44px]"
           >

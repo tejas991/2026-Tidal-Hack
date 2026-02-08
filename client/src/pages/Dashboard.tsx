@@ -377,7 +377,7 @@ export default function Dashboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/inventory')}
+                  onClick={() => navigate('/dashboard')}
                 >
                   View All
                 </Button>

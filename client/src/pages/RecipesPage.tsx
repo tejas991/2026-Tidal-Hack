@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Recipe, RecipeDifficulty } from '../types';
 import RecipeCard from '../components/features/Recipes/RecipeCard';
 import Button from '../components/ui/Button';
@@ -10,163 +11,7 @@ import Alert from '../components/ui/Alert';
 type PageStatus = 'empty' | 'loading' | 'loaded' | 'error';
 type DifficultyFilter = RecipeDifficulty | 'all';
 
-/* ---- Mock recipes ---- */
-
-function daysFromNow(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-const MOCK_RECIPES: Recipe[] = [
-  {
-    id: 'r1',
-    name: 'Greek Yogurt Parfait',
-    description:
-      'Layer creamy yogurt with fresh fruits and crunchy granola for a quick, nutritious breakfast.',
-    prep_time_minutes: 10,
-    servings: 2,
-    difficulty: 'easy',
-    uses_expiring_items: ['Greek yogurt'],
-    ingredients: [
-      { name: 'Greek yogurt', amount: 1, unit: 'cup', in_inventory: true },
-      { name: 'Granola', amount: 0.5, unit: 'cup', in_inventory: false },
-      { name: 'Mixed berries', amount: 1, unit: 'cup', in_inventory: false },
-      { name: 'Honey', amount: 1, unit: 'tbsp', in_inventory: false },
-    ],
-    instructions: [
-      'Spoon half the yogurt into two glasses or bowls.',
-      'Add a layer of granola and berries.',
-      'Top with remaining yogurt, more granola, and a drizzle of honey.',
-      'Serve immediately or refrigerate up to 4 hours.',
-    ],
-  },
-  {
-    id: 'r2',
-    name: 'Chicken Stir-Fry with Bell Peppers',
-    description:
-      'A fast weeknight dinner that puts your expiring chicken and veggies to great use.',
-    prep_time_minutes: 25,
-    servings: 4,
-    difficulty: 'medium',
-    uses_expiring_items: ['Chicken breast', 'Bell peppers'],
-    ingredients: [
-      { name: 'Chicken breast', amount: 2, unit: 'pieces', in_inventory: true },
-      { name: 'Bell peppers', amount: 2, unit: 'pieces', in_inventory: true },
-      { name: 'Soy sauce', amount: 3, unit: 'tbsp', in_inventory: false },
-      { name: 'Garlic', amount: 3, unit: 'cloves', in_inventory: false },
-      { name: 'Ginger', amount: 1, unit: 'tbsp', in_inventory: false },
-      { name: 'Rice', amount: 2, unit: 'cups', in_inventory: false },
-    ],
-    instructions: [
-      'Slice chicken into thin strips and season with salt and pepper.',
-      'Heat oil in a wok or large skillet over high heat.',
-      'Cook chicken strips 4-5 minutes until golden. Remove and set aside.',
-      'Add sliced bell peppers and stir-fry 2-3 minutes.',
-      'Return chicken to the pan, add soy sauce, garlic, and ginger.',
-      'Toss everything together for 1-2 minutes. Serve over steamed rice.',
-    ],
-  },
-  {
-    id: 'r3',
-    name: 'Spinach & Cheese Omelette',
-    description:
-      'A protein-packed breakfast ready in under 15 minutes using your expiring spinach and cheese.',
-    prep_time_minutes: 12,
-    servings: 1,
-    difficulty: 'easy',
-    uses_expiring_items: ['Baby spinach', 'Cheddar cheese', 'Eggs'],
-    ingredients: [
-      { name: 'Eggs', amount: 3, in_inventory: true },
-      { name: 'Baby spinach', amount: 1, unit: 'cup', in_inventory: true },
-      { name: 'Cheddar cheese', amount: 0.5, unit: 'cup', in_inventory: true },
-      { name: 'Butter', amount: 1, unit: 'tbsp', in_inventory: false },
-      { name: 'Salt & pepper', amount: 1, unit: 'pinch', in_inventory: false },
-    ],
-    instructions: [
-      'Whisk eggs with a pinch of salt and pepper.',
-      'Melt butter in a non-stick pan over medium heat.',
-      'Pour in eggs and let set for 1 minute without stirring.',
-      'Add spinach and cheese on one half.',
-      'Fold the other half over and cook 1-2 minutes until cheese melts.',
-      'Slide onto a plate and serve.',
-    ],
-  },
-  {
-    id: 'r4',
-    name: 'Milk-Braised Chicken Thighs',
-    description:
-      'Tender chicken simmered in milk with garlic and herbs — a cozy, surprising dish.',
-    prep_time_minutes: 55,
-    servings: 4,
-    difficulty: 'hard',
-    uses_expiring_items: ['Milk', 'Chicken breast'],
-    ingredients: [
-      { name: 'Chicken thighs', amount: 4, unit: 'pieces', in_inventory: true },
-      { name: 'Milk', amount: 2, unit: 'cups', in_inventory: true },
-      { name: 'Garlic', amount: 6, unit: 'cloves', in_inventory: false },
-      { name: 'Fresh sage', amount: 8, unit: 'leaves', in_inventory: false },
-      { name: 'Lemon zest', amount: 1, unit: 'tsp', in_inventory: false },
-      { name: 'Olive oil', amount: 2, unit: 'tbsp', in_inventory: false },
-    ],
-    instructions: [
-      'Season chicken thighs generously with salt and pepper.',
-      'Sear skin-side down in olive oil for 5 minutes until golden.',
-      'Flip chicken, add garlic cloves, sage leaves, and lemon zest.',
-      'Pour in milk — it should come halfway up the chicken.',
-      'Bring to a gentle simmer, cover, and cook 35-40 minutes.',
-      'Remove lid for the last 10 minutes to let the sauce reduce and thicken.',
-      'Serve with crusty bread to soak up the sauce.',
-    ],
-  },
-  {
-    id: 'r5',
-    name: 'Quick Veggie Fried Rice',
-    description:
-      'Turn leftover rice and whatever veggies you have into a satisfying one-pan meal.',
-    prep_time_minutes: 15,
-    servings: 3,
-    difficulty: 'easy',
-    uses_expiring_items: ['Bell peppers', 'Eggs'],
-    ingredients: [
-      { name: 'Cooked rice', amount: 3, unit: 'cups', in_inventory: false },
-      { name: 'Bell peppers', amount: 1, unit: 'piece', in_inventory: true },
-      { name: 'Eggs', amount: 2, in_inventory: true },
-      { name: 'Soy sauce', amount: 2, unit: 'tbsp', in_inventory: false },
-      { name: 'Sesame oil', amount: 1, unit: 'tsp', in_inventory: false },
-      { name: 'Green onions', amount: 3, unit: 'stalks', in_inventory: false },
-    ],
-    instructions: [
-      'Heat oil in a large skillet or wok over high heat.',
-      'Scramble eggs, break into pieces, and set aside.',
-      'Stir-fry diced bell peppers for 2 minutes.',
-      'Add cold rice and toss until heated through and slightly crispy.',
-      'Add scrambled eggs back, drizzle with soy sauce and sesame oil.',
-      'Top with sliced green onions and serve hot.',
-    ],
-  },
-];
-
-/* ---- Simulated API ---- */
-
-async function generateRecipes(): Promise<Recipe[]> {
-  // Simulate network delay (1.5–2.5 s)
-  const delay = 1500 + Math.random() * 1000;
-  await new Promise((resolve) => setTimeout(resolve, delay));
-
-  // Randomly fail ~10% of the time to demo error state
-  if (Math.random() < 0.1) {
-    throw new Error('Failed to generate recipes. Please try again.');
-  }
-
-  // Return 3–5 random recipes
-  const shuffled = [...MOCK_RECIPES].sort(() => Math.random() - 0.5);
-  const count = 3 + Math.floor(Math.random() * 3); // 3–5
-  return shuffled.slice(0, count);
-}
+const USER_ID = 'demo_user';
 
 /* ---- Icons ---- */
 
@@ -226,6 +71,21 @@ function BookOpenIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -323,6 +183,7 @@ function Toast({
 /* ---- Component ---- */
 
 export default function RecipesPage() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<PageStatus>('empty');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [error, setError] = useState('');
@@ -335,30 +196,61 @@ export default function RecipesPage() {
   const [expiringOnly, setExpiringOnly] = useState(false);
   const [difficulty, setDifficulty] = useState<DifficultyFilter>('all');
 
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
   /* ---- Generate recipes ---- */
 
   const handleGenerate = useCallback(async () => {
     setStatus('loading');
     setError('');
+    let mapped: Recipe[] = [];
+    let failed = false;
 
     try {
-      const result = await generateRecipes();
-      if (!mountedRef.current) return;
-      setRecipes(result);
-      setStatus('loaded');
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(
-        err instanceof Error ? err.message : 'Something went wrong.',
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+
+      const res = await fetch(
+        `/api/recipes/${USER_ID}?days=7`,
+        { signal: controller.signal },
       );
-      setStatus('error');
+      clearTimeout(timeout);
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.detail || data.message || `Server error ${res.status}`,
+        );
+      }
+
+      const rawRecipes = data.recipes ?? [];
+      mapped = rawRecipes.map(
+        (raw: { name: string; prep_time: string; ingredients: string[]; instructions: string[]; items_used: string[] }, i: number): Recipe => ({
+          id: `generated-${i}`,
+          name: raw.name,
+          prep_time_minutes: parseInt(raw.prep_time, 10) || 0,
+          ingredients: (raw.ingredients ?? []).map((name: string) => ({
+            name,
+            amount: 1,
+            in_inventory: true,
+          })),
+          instructions: raw.instructions ?? [],
+          uses_expiring_items: raw.items_used ?? [],
+        }),
+      );
+    } catch (err) {
+      failed = true;
+      const msg =
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'Request timed out. Is the backend running?'
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong.';
+      setError(msg);
+      console.error('[RecipesPage] generate failed:', err);
+    } finally {
+      // Guarantee we ALWAYS exit loading — no matter what happened above
+      setRecipes(mapped);
+      setStatus(failed ? 'error' : 'loaded');
     }
   }, []);
 
@@ -572,6 +464,25 @@ export default function RecipesPage() {
             />
           ))}
         </div>
+      )}
+
+      {/* Loaded — no recipes returned from API */}
+      {status === 'loaded' && recipes.length === 0 && (
+        <EmptyState
+          icon={<BookOpenIcon />}
+          title="Your fridge is empty!"
+          description="Scan some food to get recipes. We'll generate meal ideas based on what's in your fridge."
+          action={
+            <Button
+              variant="primary"
+              size="md"
+              leftIcon={<CameraIcon />}
+              onClick={() => navigate('/scan')}
+            >
+              Scan Your Fridge
+            </Button>
+          }
+        />
       )}
 
       {/* Loaded — no matches after filtering */}

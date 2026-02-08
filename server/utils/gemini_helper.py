@@ -5,7 +5,9 @@ This module uses Google's Gemini API for intelligent features
 import google.generativeai as genai
 import os
 import json
+import re
 from typing import List, Optional
+from datetime import datetime, timedelta
 from PIL import Image
 
 
@@ -155,6 +157,82 @@ If no food items are found, respond with: []"""
         except Exception as e:
             print(f"❌ Error extracting date with Gemini: {e}")
             return None
+
+    def estimate_expiration(self, item_name: str) -> Optional[str]:
+        """
+        Estimate average expiration date for a food item using Gemini AI.
+        Works for all food types including fruits, vegetables, dairy, meat, etc.
+        Used as fallback when OCR and image-based date extraction fail.
+
+        Args:
+            item_name: Name of the food item (e.g. "apple", "milk", "chicken")
+
+        Returns:
+            Date string in ISO format (YYYY-MM-DD) or None
+        """
+        if not self.model:
+            return self._fallback_expiration(item_name)
+
+        try:
+            prompt = f"""
+            How many days does "{item_name}" typically last when stored in a refrigerator
+            after being purchased from a grocery store?
+            Consider average freshness from the date of purchase.
+            Respond with ONLY a single integer number of days. Nothing else.
+            """
+
+            response = self.model.generate_content(prompt)
+            days_text = response.text.strip()
+
+            days = int(re.search(r'\d+', days_text).group())
+
+            expiration = datetime.utcnow() + timedelta(days=days)
+            result = expiration.strftime("%Y-%m-%d")
+
+            print(f"📅 AI estimated expiry for '{item_name}': {days} days → {result}")
+            return result
+
+        except Exception as e:
+            print(f"❌ Error estimating expiry with Gemini: {e}")
+            return self._fallback_expiration(item_name)
+
+    def _fallback_expiration(self, item_name: str) -> Optional[str]:
+        """Hardcoded average shelf life estimates when Gemini is unavailable.
+        Covers fruits, vegetables, dairy, meat, and common pantry items."""
+
+        shelf_life = {
+            # Fruits
+            "apple": 21, "banana": 5, "blue berry": 7, "blueberry": 7,
+            "stawberry": 5, "strawberry": 5, "orange": 21, "grape": 7,
+            "grapes": 7, "mango": 5, "pear": 5, "peach": 4, "plum": 5,
+            "watermelon": 7, "pineapple": 5, "kiwi": 7, "avocado": 4,
+            "lemon": 21, "lime": 21, "cherry": 5, "fig": 3,
+            "pomegranate": 14, "papaya": 5, "cantaloupe": 5,
+            # Vegetables
+            "brinjal": 7, "cabbage": 14, "capsicum": 7, "carrot": 21,
+            "corn": 3, "cucumber": 7, "green beans": 5, "green chilly": 7,
+            "green leaves": 3, "mushroom": 5, "potato": 21, "sweet potato": 14,
+            "tomato": 7, "onion": 30, "garlic": 30, "spinach": 3,
+            "lettuce": 5, "broccoli": 5, "cauliflower": 7, "celery": 14,
+            "zucchini": 5, "bell pepper": 7, "ginger": 21, "peas": 3,
+            # Dairy
+            "milk": 7, "cheese": 21, "butter": 30, "yogurt": 10,
+            "fresh cream": 7, "cream cheese": 14, "sour cream": 14,
+            # Meat & Protein
+            "chicken": 2, "meat": 3, "beef": 3, "pork": 3,
+            "shrimp": 2, "fish": 2, "turkey": 2, "egg": 21, "eggs": 21,
+            "tofu": 7, "sausage": 5, "bacon": 7, "ham": 5,
+            # Pantry & Other
+            "bread": 5, "chocolate": 180, "flour": 180, "rice": 180,
+            "pasta": 180, "jam": 90, "juice": 7, "sauce": 14,
+            "ketchup": 30, "mustard": 60, "mayonnaise": 60,
+        }
+
+        days = shelf_life.get(item_name.lower(), 7)  # Default 7 days
+        expiration = datetime.utcnow() + timedelta(days=days)
+        result = expiration.strftime("%Y-%m-%d")
+        print(f"📅 [FALLBACK] Estimated expiry for '{item_name}': {days} days → {result}")
+        return result
 
     def generate_recipes(self, expiring_items: List[str], max_recipes: int = 3) -> List[dict]:
         """

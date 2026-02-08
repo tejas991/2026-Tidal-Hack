@@ -190,28 +190,59 @@ async def scan_fridge(
         if not detections:
             raise HTTPException(status_code=400, detail="No items detected. Try getting closer or improving lighting.")
 
-        # Step 2: Build detection results and store in inventory
+        # Step 2: Extract expiration dates and build detection results
         detected_items = []
 
         for detection in detections:
+            expiration_date = None
+
+            # --- Expiration Date Pipeline ---
+            # Try 1: OCR on cropped region (reads printed dates)
+            cropped = app.state.food_detector.crop_detection(file_path, detection["bounding_box"])
+            if cropped is not None and app.state.date_extractor is not None:
+                import cv2
+                crop_path = f"uploads/crop_{int(time.time())}_{detection['item_name']}.jpg"
+                cv2.imwrite(crop_path, cropped)
+
+                expiration_date = app.state.date_extractor.extract_date_from_image(crop_path)
+
+                # Try 2: Gemini reads date from cropped image (AI vision)
+                if not expiration_date and app.state.gemini_helper is not None:
+                    expiration_date = app.state.gemini_helper.extract_expiration_date(crop_path)
+
+                try:
+                    os.remove(crop_path)
+                except:
+                    pass
+
+            # Try 3: AI estimates shelf life (works for fruits, veggies, meat, etc.)
+            if not expiration_date and app.state.gemini_helper is not None:
+                expiration_date = app.state.gemini_helper.estimate_expiration(detection["item_name"])
+
             detected_item = DetectionResult(
                 item_name=detection["item_name"],
                 confidence=detection["confidence"],
                 bounding_box=detection["bounding_box"],
-                expiration_date=None
+                expiration_date=expiration_date
             )
             detected_items.append(detected_item)
 
-            # Store in MongoDB inventory
-            inventory_item = InventoryItem(
-                user_id=user_id,
-                item_name=detection["item_name"],
-                confidence_score=detection["confidence"],
-                image_url=file_path,
-                status="active"
-            )
+            # Store in MongoDB inventory with expiration date
+            inventory_data = {
+                "user_id": user_id,
+                "item_name": detection["item_name"],
+                "confidence_score": detection["confidence"],
+                "image_url": file_path,
+                "status": "active",
+                "detected_at": datetime.utcnow(),
+            }
+            if expiration_date:
+                try:
+                    inventory_data["expiration_date"] = datetime.strptime(expiration_date, "%Y-%m-%d")
+                except:
+                    inventory_data["expiration_date"] = None
 
-            await db.inventory_items.insert_one(inventory_item.model_dump(by_alias=True, exclude=['id']))
+            await db.inventory_items.insert_one(inventory_data)
 
         # Step 3: Record the scan in database
         processing_time = time.time() - start_time
@@ -241,6 +272,63 @@ async def scan_fridge(
     except Exception as e:
         print(f"❌ Error during scan: {e}")
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+
+
+# ==================== TEXT EXTRACTION (OCR) ====================
+@app.post("/api/extract-text")
+async def extract_text(
+    image: UploadFile = File(...),
+    user_id: str = Form(default="demo_user")
+):
+    """
+    Extract all text from an uploaded image using EasyOCR.
+    Useful for reading food labels, ingredients, brand names, and expiration dates.
+
+    Args:
+        image: Uploaded image file
+        user_id: User ID for logging
+
+    Returns:
+        All extracted text and any detected expiration dates
+    """
+    try:
+        if app.state.date_extractor is None or app.state.date_extractor.reader is None:
+            raise HTTPException(status_code=503, detail="OCR is not available. EasyOCR failed to load.")
+
+        # Save uploaded file temporarily
+        file_path = f"uploads/ocr_{user_id}_{int(time.time())}_{image.filename}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        print(f"🔤 Extracting text from image for user {user_id}: {file_path}")
+
+        # Extract all text
+        texts = app.state.date_extractor.extract_text(file_path)
+
+        # Also try to find expiration date
+        expiration_date = app.state.date_extractor.extract_date_from_image(file_path)
+
+        # Clean up
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
+        print(f"🔤 Found {len(texts)} text segments in image")
+
+        return {
+            "texts": texts,
+            "full_text": " | ".join(texts),
+            "total_segments": len(texts),
+            "expiration_date": expiration_date,
+            "message": f"Extracted {len(texts)} text segments from image"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error extracting text: {e}")
+        raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
 
 
 # ==================== INVENTORY MANAGEMENT ====================
@@ -349,7 +437,7 @@ async def get_expiring_items(user_id: str, days: int = 3):
 
 
 # ==================== RECIPE GENERATION ====================
-@app.get("/api/recipes/{user_id}", response_model=RecipeResponse)
+@app.get("/api/recipes/{user_id}")
 async def get_recipes(user_id: str, days: int = 3):
     """
     Generate recipes using expiring ingredients
@@ -363,11 +451,14 @@ async def get_recipes(user_id: str, days: int = 3):
     """
     db = get_database()
 
+    print(f"📋 Recipe request for user_id='{user_id}', days={days}")
+
     try:
         # Get expiring items
         today = datetime.utcnow()
         future_date = today + timedelta(days=days)
 
+        # First try expiring items
         items_cursor = db.inventory_items.find({
             "user_id": user_id,
             "status": "active",
@@ -376,23 +467,44 @@ async def get_recipes(user_id: str, days: int = 3):
                 "$lte": future_date
             }
         })
-
         items = await items_cursor.to_list(length=50)
 
+        # Fallback: use ALL active inventory items when none are expiring
         if not items:
-            return RecipeResponse(
-                recipes=[],
-                expiring_items_used=[],
-                message="No expiring items found. Your fridge is in good shape!"
-            )
+            print(f"  ↳ No expiring items, falling back to all active items for '{user_id}'")
+            items_cursor = db.inventory_items.find({
+                "user_id": user_id,
+                "status": "active",
+            })
+            items = await items_cursor.to_list(length=50)
 
-        # Extract item names
-        expiring_item_names = [item["item_name"] for item in items]
+        # ── Empty inventory → explicit error so frontend can exit loading ──
+        if not items:
+            print(f"  ↳ No inventory items at all for '{user_id}'")
+            return JSONResponse(content={
+                "error": "No ingredients found",
+                "recipes": [],
+                "expiring_items_used": [],
+                "message": "Your fridge is empty! Scan some food first.",
+            })
+
+        # Extract unique item names
+        expiring_item_names = list({item["item_name"] for item in items})
+        print(f"  ↳ Ingredients ({len(expiring_item_names)}): {expiring_item_names}")
 
         # Generate recipes with Gemini
         if app.state.gemini_helper is None:
             raise HTTPException(status_code=503, detail="Gemini AI is not available. Set GEMINI_API_KEY.")
         recipes = app.state.gemini_helper.generate_recipes(expiring_item_names, max_recipes=3)
+
+        if not recipes:
+            print(f"  ↳ Gemini returned no recipes for: {expiring_item_names}")
+            return JSONResponse(content={
+                "error": "Gemini returned empty",
+                "recipes": [],
+                "expiring_items_used": expiring_item_names,
+                "message": "Could not generate recipes right now. Try again later.",
+            })
 
         recipe_objects = [Recipe(**recipe) for recipe in recipes]
 
@@ -404,7 +516,10 @@ async def get_recipes(user_id: str, days: int = 3):
             message=f"Here are {len(recipe_objects)} recipes using your expiring items!"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Recipe generation error for '{user_id}': {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate recipes: {str(e)}")
 
 
