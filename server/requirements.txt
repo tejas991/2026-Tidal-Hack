@@ -22,7 +22,8 @@ easyocr>=1.7.2
 # AI/ML
 google-generativeai>=0.8.3
 
-# Roboflow (HTTP API via requests)
+# Roboflow
+roboflow>=1.1.0
 requests>=2.31.0
 
 # Utilities

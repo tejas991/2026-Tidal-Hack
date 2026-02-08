@@ -32,15 +32,24 @@ class FoodDetector:
         self.gemini_helper = gemini_helper
         self.mock_mode = False
         self.roboflow_available = False
+        self.model = None
 
-        # Set up Roboflow as primary — use direct inference API (same as Roboflow website)
+        # Set up Roboflow as primary — use the Python SDK (same as test_model.py / Roboflow website)
         api_key = os.getenv('ROBOFLOW_API_KEY')
         if api_key and api_key not in ('YOUR_KEY_HERE', 'your_roboflow_api_key_here'):
-            self.api_key = api_key
-            self.project = os.getenv('ROBOFLOW_PROJECT', 'fridge-food-images-suzmb')
-            self.version = os.getenv('ROBOFLOW_VERSION', '2')
-            self.roboflow_available = True
-            print(f"  ✅ Roboflow model ready (primary): {self.project}/{self.version}")
+            try:
+                from roboflow import Roboflow
+                workspace = os.getenv('ROBOFLOW_WORKSPACE', 'security-detection')
+                project_name = os.getenv('ROBOFLOW_PROJECT', 'fridge-food-images-suzmb')
+                version = int(os.getenv('ROBOFLOW_VERSION', '2'))
+
+                rf = Roboflow(api_key=api_key)
+                project = rf.workspace(workspace).project(project_name)
+                self.model = project.version(version).model
+                self.roboflow_available = True
+                print(f"  ✅ Roboflow model loaded (primary): {workspace}/{project_name} v{version}")
+            except Exception as e:
+                print(f"  ❌ Roboflow SDK failed to load: {e}")
 
         if self.roboflow_available:
             print("  ✅ Food detector: Roboflow (primary)")
@@ -81,28 +90,9 @@ class FoodDetector:
         return []
 
     def _roboflow_detect(self, image_path: str, confidence: int = 40, overlap: int = 30) -> List[dict]:
-        """Detect items using Roboflow direct inference API (same as Roboflow website)"""
+        """Detect items using Roboflow Python SDK (identical to test_model.py / Roboflow website)"""
         try:
-            import requests
-            import base64
-
-            with open(image_path, "rb") as f:
-                image_b64 = base64.b64encode(f.read()).decode("utf-8")
-
-            # Direct inference API — identical to what Roboflow's website uses
-            url = (
-                f"https://detect.roboflow.com/{self.project}/{self.version}"
-                f"?api_key={self.api_key}"
-                f"&confidence={confidence}"
-                f"&overlap={overlap}"
-            )
-            response = requests.post(
-                url,
-                data=image_b64,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            response.raise_for_status()
-            result = response.json()
+            result = self.model.predict(image_path, confidence=confidence, overlap=overlap).json()
 
             detections = []
             predictions = result.get('predictions', [])
