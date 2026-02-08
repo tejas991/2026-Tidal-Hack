@@ -1,5 +1,5 @@
-import { post, ApiError, isApiError } from '../client';
-import type { Recipe } from '../../types';
+import { get, ApiError, isApiError } from '../client';
+import type { Recipe, BackendRecipeResponse, BackendRecipe } from '../../types';
 
 /* ============================================
  * FridgeTrack — Recipes API Endpoints
@@ -48,25 +48,47 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 
+// ---- Helpers ----
+
+/** Map backend Recipe shape to frontend Recipe type */
+function mapRecipe(raw: BackendRecipe, index: number): Recipe {
+  return {
+    id: `generated-${index}`,
+    name: raw.name,
+    prep_time_minutes: parseInt(raw.prep_time, 10) || 0,
+    ingredients: raw.ingredients.map((name) => ({
+      name,
+      amount: 1,
+      in_inventory: true,
+    })),
+    instructions: raw.instructions,
+    uses_expiring_items: raw.items_used,
+  };
+}
+
+
 // ---- Endpoints ----
 
 /**
  * Generate recipe suggestions from a user's expiring inventory items.
  *
+ * Backend route: GET /api/recipes/{user_id}?days=3
+ *
  * Uses the Gemini API on the backend — subject to rate limits.
  * Automatically retries with exponential backoff on 429/503.
  *
  * @param userId - The user's ID
+ * @param days   - Lookahead window for expiring items (default: 3)
  * @returns Array of recipe suggestions using expiring items
  */
-async function generate(userId: string): Promise<Recipe[]> {
+async function generate(userId: string, days: number = 3): Promise<Recipe[]> {
   try {
     return await withRetry(async () => {
-      const response = await post<{ success: boolean; data?: Recipe[] }>(
-        '/api/get-recipes',
-        { user_id: userId },
+      const response = await get<BackendRecipeResponse>(
+        `/api/recipes/${encodeURIComponent(userId)}`,
+        { days },
       );
-      return response.data ?? [];
+      return (response.recipes ?? []).map(mapRecipe);
     });
   } catch (error: unknown) {
     if (isApiError(error)) {
@@ -88,44 +110,18 @@ async function generate(userId: string): Promise<Recipe[]> {
 /**
  * Search for recipes matching specific ingredients.
  *
- * Uses the Gemini API on the backend — subject to rate limits.
- * Automatically retries with exponential backoff on 429/503.
+ * NOTE: This endpoint is not yet implemented on the backend.
+ * Returns an empty array and logs a warning.
  *
  * @param ingredients - Array of ingredient names to search with
- * @returns Array of matching recipes
+ * @returns Array of matching recipes (currently always empty)
  */
 async function getByIngredients(ingredients: string[]): Promise<Recipe[]> {
-  if (ingredients.length === 0) {
-    return [];
-  }
-
-  try {
-    return await withRetry(async () => {
-      const response = await post<{ success: boolean; data?: Recipe[] }>(
-        '/api/recipes/search',
-        { ingredients },
-      );
-      return response.data ?? [];
-    });
-  } catch (error: unknown) {
-    if (isApiError(error)) {
-      if (error.status === 429) {
-        throw new ApiError(
-          429,
-          'Recipe search is rate-limited. Please wait a moment and try again.',
-          error.data,
-        );
-      }
-      if (error.status === 422) {
-        throw new ApiError(
-          422,
-          'Invalid ingredients. Please check your input.',
-          error.data,
-        );
-      }
-    }
-    throw error;
-  }
+  console.warn(
+    '[recipesApi.getByIngredients] Endpoint not yet implemented on backend: POST /api/recipes/search',
+  );
+  void ingredients;
+  return [];
 }
 
 

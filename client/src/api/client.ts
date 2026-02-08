@@ -75,8 +75,10 @@ export function clearAuthToken(): void {
 // ---- Create Instance ----
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: env.API_URL,
-  timeout: 30_000,
+  // In development, use empty baseURL so requests go through the Vite dev proxy.
+  // In production, use the full backend URL from environment config.
+  baseURL: env.IS_DEV ? '' : env.API_URL,
+  timeout: 300_000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -168,7 +170,7 @@ export async function upload<T>(
 ): Promise<T> {
   const response = await apiClient.post<T>(url, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60_000,
+    timeout: 300_000,
     onUploadProgress: onProgress
       ? (e) => {
           const percent = e.total ? Math.round((e.loaded / e.total) * 100) : 0;

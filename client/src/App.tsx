@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/ui/Toast';
 import Layout from './components/layout/Layout';
@@ -7,6 +8,18 @@ import {
   StatsCardSkeleton,
   InventoryItemSkeleton,
 } from './components/ui/LoadingSkeleton';
+
+/* ---- React Query client ---- */
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: true,
+      staleTime: 5 * 60 * 1_000, // 5 minutes
+    },
+  },
+});
 
 /* ---- Lazy-loaded pages ---- */
 
@@ -45,20 +58,22 @@ function PageFallback() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <BrowserRouter>
-          <Layout>
-            <Suspense fallback={<PageFallback />}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/scan" element={<ScanPage />} />
-                <Route path="/recipes" element={<RecipesPage />} />
-                <Route path="/shopping" element={<ShoppingListPage />} />
-              </Routes>
-            </Suspense>
-          </Layout>
-        </BrowserRouter>
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <BrowserRouter>
+            <Layout>
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/scan" element={<ScanPage />} />
+                  <Route path="/recipes" element={<RecipesPage />} />
+                  <Route path="/shopping" element={<ShoppingListPage />} />
+                </Routes>
+              </Suspense>
+            </Layout>
+          </BrowserRouter>
+        </ToastProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

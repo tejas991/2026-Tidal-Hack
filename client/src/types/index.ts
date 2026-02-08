@@ -175,3 +175,84 @@ export interface UpdateItemPayload {
   category?: FoodCategory;
   quantity?: number;
 }
+
+export type ItemStatus = 'active' | 'consumed' | 'wasted';
+
+
+// ---- Backend Response Shapes ----
+// These match the actual FastAPI response models.
+
+export interface HealthCheckResponse {
+  status: string;
+  timestamp: string;
+  database: string;
+  components: {
+    food_detector: string;
+    date_extractor: string;
+    gemini: string;
+  };
+}
+
+export interface BackendDetectionResult {
+  item_name: string;
+  confidence: number;
+  bounding_box: number[];
+  expiration_date: string | null;
+}
+
+export interface BackendScanResponse {
+  scan_id: string;
+  items_detected: BackendDetectionResult[];
+  total_items: number;
+  processing_time: number;
+  message: string;
+}
+
+export interface BackendInventoryItem {
+  _id: string;
+  user_id: string;
+  item_name: string;
+  expiration_date?: string;
+  detected_at: string;
+  confidence_score: number;
+  image_url?: string;
+  quantity?: number;
+  category?: string;
+  status: string;
+}
+
+export interface BackendInventoryResponse {
+  user_id: string;
+  items: BackendInventoryItem[];
+  total: number;
+}
+
+export interface BackendExpiringResponse {
+  user_id: string;
+  expiring_items: BackendInventoryItem[];
+  total_expiring: number;
+  urgency_breakdown: {
+    today: number;
+    tomorrow: number;
+    this_week: number;
+  };
+}
+
+export interface BackendRecipe {
+  name: string;
+  ingredients: string[];
+  instructions: string[];
+  prep_time: string;
+  items_used: string[];
+}
+
+export interface BackendRecipeResponse {
+  recipes: BackendRecipe[];
+  expiring_items_used: string[];
+  message: string;
+}
+
+export interface BackendItemStatusResponse {
+  message: string;
+  item_id: string;
+}

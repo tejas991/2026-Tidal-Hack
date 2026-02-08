@@ -6,14 +6,14 @@ import {
 } from '@tanstack/react-query';
 import { inventoryApi } from '../api/endpoints/inventory';
 import { scanApi } from '../api/endpoints/scan';
-import type { InventoryItem, ScanResponse } from '../types';
+import type { InventoryItem, ItemStatus, BackendScanResponse, BackendItemStatusResponse } from '../types';
 
 /* ============================================
  * FridgeTrack — Inventory Hooks
  * ============================================
  * React Query hooks for inventory CRUD,
  * expiring-items polling, scan upload, and
- * item deletion with cache invalidation.
+ * item status updates with cache invalidation.
  * ============================================ */
 
 
@@ -62,7 +62,8 @@ export function useExpiringItems(userId: string, days: number = 3) {
 /**
  * Add a new item to inventory.
  *
- * Invalidates the inventory cache on success.
+ * NOTE: Backend endpoint not yet implemented.
+ * This mutation will fail with a 501 error until the backend adds POST /api/inventory.
  */
 export function useAddItem(userId: string) {
   const queryClient = useQueryClient();
@@ -76,21 +77,23 @@ export function useAddItem(userId: string) {
 }
 
 /**
- * Update an existing inventory item.
+ * Update an inventory item's status (active → consumed / wasted).
  *
- * Invalidates the inventory cache on success.
+ * Backend route: PUT /api/items/{item_id}/status
+ * Invalidates inventory caches on success.
  */
-export function useUpdateItem(userId: string) {
+export function useUpdateItemStatus(userId: string) {
   const queryClient = useQueryClient();
 
   return useMutation<
-    InventoryItem,
+    BackendItemStatusResponse,
     Error,
-    { id: string; updates: Partial<InventoryItem> }
+    { itemId: string; status: ItemStatus }
   >({
-    mutationFn: ({ id, updates }) => inventoryApi.updateItem(id, updates),
+    mutationFn: ({ itemId, status }) => inventoryApi.updateItemStatus(itemId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all(userId) });
+      queryClient.invalidateQueries({ queryKey: ['expiring', userId] });
     },
   });
 }
@@ -98,7 +101,9 @@ export function useUpdateItem(userId: string) {
 /**
  * Delete an inventory item.
  *
- * Invalidates the inventory and expiring-items caches on success.
+ * NOTE: Backend endpoint not yet implemented.
+ * This mutation will fail with a 501 error.
+ * Use useUpdateItemStatus to mark items as consumed or wasted instead.
  */
 export function useDeleteItem(userId: string) {
   const queryClient = useQueryClient();
@@ -123,8 +128,8 @@ export function useScanImage(userId: string) {
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
 
-  const mutation = useMutation<ScanResponse, Error, File>({
-    mutationFn: (file) => scanApi.uploadImage(file, setProgress),
+  const mutation = useMutation<BackendScanResponse, Error, File>({
+    mutationFn: (file) => scanApi.uploadImage(file, userId, setProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all(userId) });
     },
