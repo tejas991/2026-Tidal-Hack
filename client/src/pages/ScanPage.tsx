@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import type { InventoryItem, BackendDetectionResult } from '../types';
 import { scanApi } from '../api/endpoints/scan';
 import { isApiError } from '../api/client';
@@ -154,6 +155,7 @@ function SkeletonCard() {
 
 export default function ScanPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [status, setStatus] = useState<ScanStatus>('idle');
   const [detectedItems, setDetectedItems] = useState<InventoryItem[]>([]);
@@ -188,6 +190,11 @@ export default function ScanPage() {
 
       setDetectedItems(items);
       succeeded = true;
+
+      // Invalidate inventory queries to trigger automatic refresh in Dashboard
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'demo_user'] });
+      queryClient.invalidateQueries({ queryKey: ['expiring', 'demo_user'] });
+
       setStatus('success');
     } catch (error: unknown) {
       if (!mountedRef.current) return;
